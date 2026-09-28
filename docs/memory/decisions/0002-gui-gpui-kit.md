@@ -6,7 +6,7 @@ tags: [gui, deps]
 # 0002 GUI: gpui-kit as the single GUI dependency, exact pin
 
 ## Context and Problem Statement
-dial first ships as a cross-platform desktop client (macOS, Windows, Linux). The user chose gpui-kit (https://gpui-kit.com) as the GUI foundation.
+oh-my-clear ships as a cross-platform desktop client (macOS, Windows, Linux). The user chose gpui-kit (https://gpui-kit.com) as the GUI foundation.
 
 ## Considered Options
 * gpui-kit umbrella crate (Longbridge; re-exports GPUI + gpui-base + gpui-component)

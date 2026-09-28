@@ -1,0 +1,376 @@
+_version: 2
+app:
+  tagline:
+    en: Clean up your system on macOS, Windows and Linux.
+    zh-CN: 在 macOS、Windows 和 Linux 上清理你的系统。
+appearance:
+  system:
+    en: System
+    zh-CN: 跟随系统
+  light:
+    en: Light
+    zh-CN: 浅色
+  dark:
+    en: Dark
+    zh-CN: 深色
+  toggle:
+    en: Toggle Light/Dark
+    zh-CN: 切换浅色/深色
+language:
+  system:
+    en: System Language
+    zh-CN: 跟随系统
+nav:
+  settings:
+    en: Settings
+    zh-CN: 设置
+  toggle_sidebar:
+    en: Toggle Sidebar
+    zh-CN: 显示/隐藏侧边栏
+  group:
+    cleanup:
+      en: Cleanup
+      zh-CN: 清理
+    storage:
+      en: Storage
+      zh-CN: 空间
+    applications:
+      en: Applications
+      zh-CN: 应用
+  overview:
+    title:
+      en: Overview
+      zh-CN: 概览
+  system_junk:
+    title:
+      en: System Junk
+      zh-CN: 系统垃圾
+    description:
+      en: Files the system and your apps regenerate on their own and no longer need.
+      zh-CN: 系统和应用会自行重建、已不再需要的文件。
+    covers:
+      en: User and system caches, logs, crash reports, temporary files, leftover update files.
+      zh-CN: 用户与系统缓存、日志、崩溃报告、临时文件、更新残留。
+  browser_data:
+    title:
+      en: Browser Data
+      zh-CN: 浏览器数据
+    description:
+      en: What browsers keep about the sites you visit.
+      zh-CN: 浏览器为访问过的网站保存的数据。
+    covers:
+      en: Caches, cookies, history, downloads list and site storage of Safari, Chrome, Edge and Firefox.
+      zh-CN: Safari、Chrome、Edge 与 Firefox 的缓存、Cookie、历史记录、下载记录和网站存储。
+  developer_junk:
+    title:
+      en: Developer Junk
+      zh-CN: 开发者垃圾
+    description:
+      en: Build output and downloaded packages a project can rebuild or fetch again.
+      zh-CN: 项目可以重新构建或重新下载的构建产物与依赖包。
+    covers:
+      en: node_modules, target, build, DerivedData, simulator caches, npm / pnpm / Cargo / Gradle / pip caches, unused container images.
+      zh-CN: node_modules、target、build、DerivedData、模拟器缓存，npm / pnpm / Cargo / Gradle / pip 缓存，未使用的容器镜像。
+  trash:
+    title_macos:
+      en: Trash
+      zh-CN: 废纸篓
+    title_windows:
+      en: Recycle Bin
+      zh-CN: 回收站
+    title_linux:
+      en: Trash
+      zh-CN: 回收站
+    description:
+      en: Deleted items that still take up space until they are emptied.
+      zh-CN: 已删除但在清空前仍占用空间的项目。
+    covers:
+      en: The deleted-items folder of every drive, including external ones.
+      zh-CN: 每个磁盘（包括外接磁盘）上的已删除项目。
+  space_lens:
+    title:
+      en: Space Lens
+      zh-CN: 空间透镜
+    description:
+      en: A map of what fills a disk, folder by folder.
+      zh-CN: 按文件夹逐层查看磁盘被什么占满。
+    covers:
+      en: Any drive or folder, sized and sorted so the biggest items come first.
+      zh-CN: 任意磁盘或文件夹，按大小排序，最大的排在最前。
+  large_old_files:
+    title:
+      en: Large & Old Files
+      zh-CN: 大文件与旧文件
+    description:
+      en: Files that take the most space or have not been opened in a long time.
+      zh-CN: 占用空间最多，或很久没有打开过的文件。
+    covers:
+      en: Files over a size threshold or untouched for months, grouped by kind and age.
+      zh-CN: 超过大小阈值或数月未访问的文件，按类型和时间分组。
+  duplicates:
+    title:
+      en: Duplicates
+      zh-CN: 重复文件
+    description:
+      en: Identical copies of the same file in different places.
+      zh-CN: 同一文件在不同位置的相同副本。
+    covers:
+      en: Files with identical content, matched by size and then by hash, regardless of name.
+      zh-CN: 内容完全相同的文件：先按大小、再按哈希比对，与文件名无关。
+  uninstaller:
+    title:
+      en: Uninstaller
+      zh-CN: 卸载程序
+    description:
+      en: Remove an app together with everything it created.
+      zh-CN: 连同应用生成的所有文件一起移除。
+    covers:
+      en: The app itself plus its caches, preferences, support files, logs and login items.
+      zh-CN: 应用本体及其缓存、偏好设置、支持文件、日志和登录项。
+  leftovers:
+    title:
+      en: Leftovers
+      zh-CN: 应用残留
+    description:
+      en: Files left behind by apps that are no longer installed.
+      zh-CN: 已卸载应用遗留下来的文件。
+    covers:
+      en: Orphaned support folders, caches, preferences and containers without an owning app.
+      zh-CN: 找不到所属应用的支持文件夹、缓存、偏好设置和容器。
+  installers:
+    title:
+      en: Installers
+      zh-CN: 安装包
+    description:
+      en: Installer packages that already did their job.
+      zh-CN: 已完成安装任务的安装包。
+    covers:
+      en: .dmg, .pkg, .msi, .exe setup, .deb, .rpm and .AppImage files in Downloads and elsewhere.
+      zh-CN: “下载”等位置中的 .dmg、.pkg、.msi、.exe 安装程序、.deb、.rpm 和 .AppImage 文件。
+  startup_items:
+    title:
+      en: Startup Items
+      zh-CN: 启动项
+    description:
+      en: Programs and services that start with your session.
+      zh-CN: 随登录一起启动的程序和服务。
+    covers:
+      en: Login items, launch agents and daemons, Windows startup entries and services, XDG autostart and systemd user units.
+      zh-CN: 登录项、启动代理与守护进程、Windows 启动项与服务、XDG 自启动项与 systemd 用户单元。
+page:
+  covers:
+    en: Covers
+    zh-CN: 范围
+main:
+  shortcuts:
+    en: Shortcuts
+    zh-CN: 快捷键
+  quit:
+    en: Quit
+    zh-CN: 退出
+menu:
+  settings:
+    en: Settings…
+    zh-CN: 设置…
+  quit:
+    en: Quit oh-my-clear
+    zh-CN: 退出 oh-my-clear
+  view:
+    en: View
+    zh-CN: 显示
+  appearance:
+    en: Appearance
+    zh-CN: 外观
+  language:
+    en: Language
+    zh-CN: 语言
+  window:
+    en: Window
+    zh-CN: 窗口
+  minimize:
+    en: Minimize
+    zh-CN: 最小化
+  zoom:
+    en: Zoom
+    zh-CN: 缩放
+  close_window:
+    en: Close Window
+    zh-CN: 关闭窗口
+  toggle_sidebar:
+    en: Show/Hide Sidebar
+    zh-CN: 显示/隐藏侧边栏
+settings:
+  page:
+    appearance:
+      en: Appearance
+      zh-CN: 外观
+    language:
+      en: Language
+      zh-CN: 语言
+  group:
+    theme:
+      en: Theme
+      zh-CN: 主题
+    shape:
+      en: Shape & Depth
+      zh-CN: 形状与层次
+    typography:
+      en: Typography
+      zh-CN: 字体
+    scrolling:
+      en: Scrolling
+      zh-CN: 滚动
+    language:
+      en: Language
+      zh-CN: 语言
+  appearance:
+    title:
+      en: Mode
+      zh-CN: 外观模式
+    description:
+      en: Light, dark, or follow the operating system.
+      zh-CN: 浅色、深色，或跟随操作系统。
+  light_theme:
+    title:
+      en: Light theme
+      zh-CN: 浅色主题
+    description:
+      en: Used whenever the interface is light.
+      zh-CN: 界面为浅色时使用。
+  dark_theme:
+    title:
+      en: Dark theme
+      zh-CN: 深色主题
+    description:
+      en: Used whenever the interface is dark.
+      zh-CN: 界面为深色时使用。
+  accent:
+    title:
+      en: Accent color
+      zh-CN: 强调色
+    description:
+      en: Replaces the theme's accent in buttons, focus rings, links and selections.
+      zh-CN: 替换主题在按钮、焦点环、链接和选区中的强调色。
+  corners:
+    title:
+      en: Corners
+      zh-CN: 圆角
+    description:
+      en: Square removes rounding everywhere.
+      zh-CN: 选择直角时，所有元素都不再有圆角。
+  shadows:
+    title:
+      en: Shadows
+      zh-CN: 阴影
+    description:
+      en: Drop shadows under controls and floating surfaces.
+      zh-CN: 控件和浮层下方的投影。
+  focus_ring:
+    title:
+      en: Focus ring
+      zh-CN: 焦点环
+    description:
+      en: Outline around the focused control. When off, only its border is tinted.
+      zh-CN: 聚焦控件外侧的描边。关闭后只保留边框着色。
+  dividers:
+    title:
+      en: Dividers
+      zh-CN: 分隔线
+    description:
+      en: Hairlines between the titlebar and window regions.
+      zh-CN: 标题栏与窗口各区域之间的细线。
+  ui_font:
+    title:
+      en: Interface font
+      zh-CN: 界面字体
+  ui_font_size:
+    title:
+      en: Interface font size
+      zh-CN: 界面字号
+    description:
+      en: Scales all interface text and controls.
+      zh-CN: 同时缩放界面文字与控件。
+  mono_font:
+    title:
+      en: Code font
+      zh-CN: 代码字体
+  mono_font_size:
+    title:
+      en: Code font size
+      zh-CN: 代码字号
+  scrollbar:
+    title:
+      en: Scrollbars
+      zh-CN: 滚动条
+  language:
+    title:
+      en: Interface language
+      zh-CN: 界面语言
+    description:
+      en: System uses the operating system's preferred language.
+      zh-CN: 跟随系统时使用操作系统的首选语言。
+accent:
+  theme:
+    en: Theme default
+    zh-CN: 主题默认
+  blue:
+    en: Blue
+    zh-CN: 蓝
+  violet:
+    en: Violet
+    zh-CN: 紫
+  green:
+    en: Green
+    zh-CN: 绿
+  orange:
+    en: Orange
+    zh-CN: 橙
+  pink:
+    en: Pink
+    zh-CN: 粉
+corners:
+  square:
+    en: Square
+    zh-CN: 直角
+  compact:
+    en: Small
+    zh-CN: 小
+  standard:
+    en: Medium
+    zh-CN: 中
+  round:
+    en: Large
+    zh-CN: 大
+font:
+  system_ui:
+    en: System font
+    zh-CN: 系统字体
+  system_mono:
+    en: System monospace
+    zh-CN: 系统等宽字体
+scrollbar:
+  system:
+    en: Follow system
+    zh-CN: 跟随系统
+  scrolling:
+    en: While scrolling
+    zh-CN: 滚动时显示
+  hover:
+    en: On hover
+    zh-CN: 悬停时显示
+  always:
+    en: Always
+    zh-CN: 始终显示
+status:
+  connected:
+    en: Daemon connected
+    zh-CN: 已连接
+  connecting:
+    en: Connecting…
+    zh-CN: 连接中
+  reconnecting:
+    en: Reconnecting…
+    zh-CN: 重连中…
+  unavailable:
+    en: Daemon unavailable
+    zh-CN: 不可用

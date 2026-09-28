@@ -3,7 +3,7 @@ status: proposed | accepted | superseded | deprecated
 date: YYYY-MM-DD
 supersedes: NNNN            # optional
 superseded-by: NNNN         # set only when superseded
-tags: [deps, runtime, gui, orchestration, testing, memory]
+tags: [deps, runtime, gui, testing, memory]
 ---
 # NNNN <short title of solved problem and chosen solution>
 

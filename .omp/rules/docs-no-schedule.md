@@ -9,7 +9,7 @@ condition:
 scope: "tool:edit(*.md), tool:write(*.md)"
 ---
 
-User rule: dial's docs (`docs/memory/**`, ADRs, `AGENTS.md`, `.omp/**`, crate docs, research write-ups) record **development rules, decisions and their evidence only**.
+User rule: oh-my-clear's docs (`docs/memory/**`, ADRs, `AGENTS.md`, `.omp/**`, crate docs, research write-ups) record **development rules, decisions and their evidence only**.
 
 - Do not write progress/status of work, milestones, schedules, roadmaps, phase plans (MVP/P1/…), next-step lists, or session logs. `git log` is the history.
 - Undecided questions go to `docs/memory/open-questions.md` as a question with options — not as a plan.

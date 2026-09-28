@@ -1,0 +1,18 @@
+[package]
+name = "omc-telemetry"
+description = "Tracing setup shared by both binaries: env filter, stderr sink, panic hook."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false # cargo-nextest is the only runner (ADR 0006)
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

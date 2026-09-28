@@ -77,22 +77,14 @@ deny = [
     { crate = "env_logger", reason = "logging is tracing-subscriber" },
     { crate = "simplelog", reason = "logging is tracing-subscriber" },
     { crate = "fern", reason = "logging is tracing-subscriber" },
+    { crate = "winresource", reason = "Windows resources: embed-resource (ADR 0018)" },
+    { crate = "winres", reason = "Windows resources: embed-resource (ADR 0018)" },
     # ADR 0008: IPC is tokio UDS / named pipes + serde_json/raw frames; spawn uses std.
     { crate = "interprocess", reason = "IPC transport is tokio (ADR 0008)" },
     { crate = "bincode", reason = "unmaintained (RUSTSEC-2025-0141); IPC wire is JSON + raw frames (ADR 0008)" },
     { crate = "daemonize", reason = "unmaintained (RUSTSEC-2025-0069); detach via std CommandExt (ADR 0008)" },
-    # ADR 0009: own ACP driver + hand-rolled provider clients on reqwest.
-    { crate = "agent-client-protocol", reason = "SDK pulls a second I/O stack; use agent-client-protocol-schema + own tokio driver (ADR 0009)" },
-    { crate = "async-openai", reason = "provider clients are hand-rolled in dial-llm (ADR 0009)" },
-    { crate = "genai", reason = "provider clients are hand-rolled in dial-llm (ADR 0009)" },
-    { crate = "rig-core", reason = "provider clients are hand-rolled in dial-llm (ADR 0009)" },
-    { crate = "eventsource-stream", reason = "SSE framer is hand-rolled in dial-llm (ADR 0009)" },
-    # ADR 0010: libghostty-vt via dial-ghostty; PTY via alacritty_terminal tty.
-    { crate = "portable-pty", reason = "no release in 12 months, Windows kill bug; PTY is alacritty_terminal tty (ADR 0010)" },
-    { crate = "libghostty-vt", reason = "pins zig 0.15 and clones in build.rs; use dial-ghostty (ADR 0010)" },
-    { crate = "libghostty-vt-sys", reason = "pins zig 0.15 and clones in build.rs; use dial-ghostty (ADR 0010)" },
-    # ADR 0011: OKLCH conversion is ~25 lines in dial-ui.
-    { crate = "palette", reason = "color math lives in dial-ui tokens (ADR 0011)" },
+    # ADR 0011: OKLCH conversion is ~25 lines in omc-ui.
+    { crate = "palette", reason = "color math lives in omc-ui tokens (ADR 0011)" },
 ]
 skip = []
 skip-tree = []

@@ -4,17 +4,17 @@
 // equivalent is `cargo nextest run -p <pkg> --debugger "rust-lldb --" <test>`.
 [
   {
-    "label": "Debug dial",
+    "label": "Debug oh-my-clear",
     "adapter": "CodeLLDB",
-    "build": { "command": "cargo", "args": ["build", "--package", "dial"] },
+    "build": { "command": "cargo", "args": ["build", "--package", "oh-my-clear"] },
     "sourceLanguages": ["rust"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "env": { "RUST_LOG": "debug", "RUST_BACKTRACE": "1" }
   },
   {
-    "label": "Debug dial-daemon (foreground)",
+    "label": "Debug oh-my-clear-daemon (foreground)",
     "adapter": "CodeLLDB",
-    "build": { "command": "cargo", "args": ["build", "--package", "dial-daemon"] },
+    "build": { "command": "cargo", "args": ["build", "--package", "oh-my-clear-daemon"] },
     "sourceLanguages": ["rust"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "env": { "RUST_LOG": "debug", "RUST_BACKTRACE": "1" }

@@ -1,26 +1,8 @@
 # Glossary
-<!-- Alphabetical. 1–2 lines per term. Use these exact terms in code, docs, and UI. Model borrowed from Orca (Run/Task/Dispatch/Message/Gate) and Zeron (engine/harness/journal). -->
-- **ACP** — Agent Client Protocol: JSON-RPC 2.0 (NDJSON) over agent stdio (`initialize`, `session/new|load|resume|prompt|cancel`, `session/update`, `session/request_permission`). How dial drives third-party agents; v1 today, v2 draft. Not: MCP.
-- **ACP Registry** — curated agent index at `cdn.agentclientprotocol.com/registry/v1/latest/registry.json`; distributions `binary` (per platform), `npx`, `uvx`. The daemon installs from it into versioned dirs (never runs npx).
-- **Adapter** — daemon-side implementation of the `AgentAdapter`/`AgentSession` trait for one agent family (`native`, `acp`, `pty`, `mock`). Not: the agent itself.
-- **Agent** — something that works a Session: dial's **native agent** (`dial-native`, in-process) or an **external agent** (Claude Code via claude-agent-acp, Codex via codex-acp, Gemini, OpenCode, …) run as a child process.
-- **AgentEvent** — normalized event from an adapter, modelled as upserts keyed by id (message, tool call, plan) plus usage, input request, error, exit.
-- **Command** — serializable UI→daemon request (`Prompt`, `Cancel`, `CreateWorktree`, …); journaled before execution.
-- **Daemon** — `dial-daemon`, the headless execution layer (engine, agents, PTYs, journal); outlives UI processes. Not: the UI process `dial`.
-- **Dispatch** — one attempt of a Task on an agent session; the only authority that may report `worker_done` for it.
+<!-- Alphabetical. 1–2 lines per term. Use these exact terms in code, docs, and UI. -->
+- **Daemon** — `oh-my-clear-daemon`, the headless execution layer (engine, filesystem/system work); outlives UI processes. Not: the UI process `oh-my-clear`.
 - **Endpoint** — `endpoint.json` in the per-user runtime dir: daemon address, protocol, build id, pid, epoch, auth token.
-- **Engine** — the daemon's core (`dial-engine`): owns sessions, processes, worktrees, journal; UIs are viewports over it.
-- **EngineEvent** — daemon→UI event derived from AgentEvents and state changes, carried per stream with a `seq`.
-- **EngineHandle** — the UI's dial-ipc client: requests, subscriptions, reconnect/resync.
-- **Epoch** — id of one daemon process lifetime; a new epoch tells clients to drop cached state and resubscribe.
-- **Gate** — coordinator-owned blocking question that pauses a Run until resolved (by user or coordinator); durable in the journal.
-- **Journal** — append-only event log with per-stream `seq`; the source of truth; UI state is a fold over it.
-- **Message** — inter-agent message (`status`, `dispatch`, `worker_done`, `escalation`, `question`, `heartbeat`), FIFO with ack.
-- **OrchestratorPort** — `dial-core` trait through which the native agent calls Run/Task/Dispatch/Message/Gate operations in-process; implemented by the engine. Same tool specs as the MCP server.
-- **Run** — durable orchestration namespace with a coordinator inbox, grouping Tasks.
-- **Session** — one conversation with one agent (native or ACP session id), bound to one Worktree.
-- **Task** — unit of work in a Run with spec + deps; status `pending|ready|dispatched|completed|failed|blocked`.
-- **Terminal auth** — ACP auth method where the client relaunches the agent with given args/env in an interactive terminal (daemon PTY), exit 0 = success, then reconnects.
-- **Terminal snapshot** — libghostty-vt binary state blob (screen + scrollback) plus the byte `seq` it covers; used to attach a UI to a running PTY.
-- **Unsafe island** — the only crates allowed `unsafe` (`UNSAFE_ISLANDS`; today `dial-ghostty`); own lint table = workspace lints except `unsafe_code = "deny"`.
-- **Worktree** — a real `git worktree` created per Task/Session for isolation; managed through the `git` CLI.
+- **Engine** — the daemon's core (`omc-engine`): serves authenticated connections and routes requests; UIs are viewports over it.
+- **EngineHandle** — the UI's omc-ipc client: requests, connection state, reconnect.
+- **Epoch** — id of one daemon process lifetime; a new epoch tells clients to drop cached state.
+- **Runtime dir** — private per-user dir (`0700`, owner-checked) holding the daemon socket, `daemon.lock`, `endpoint.json`, `daemon.log`. Code: `omc_ipc::RuntimeDir`.

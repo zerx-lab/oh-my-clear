@@ -10,7 +10,7 @@ condition:
 scope: "tool:edit(*.rs), tool:write(*.rs)"
 ---
 
-dial forbids panicking code outside `#[cfg(test)]` (clippy denies it; the build will fail).
+oh-my-clear forbids panicking code outside `#[cfg(test)]` (clippy denies it; the build will fail).
 
 - Propagate with `?` into the crate's `thiserror` error enum; add a variant instead of panicking.
 - `Option` → `ok_or(Error::X)?` / `ok_or_else(..)?` / `let Some(x) = .. else { return Err(..) };`

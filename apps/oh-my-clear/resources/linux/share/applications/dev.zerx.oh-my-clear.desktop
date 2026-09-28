@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=oh-my-clear
+Comment=Clean up your system
+Comment[zh_CN]=清理你的系统
+Exec=oh-my-clear
+Icon=dev.zerx.oh-my-clear
+Terminal=false
+Categories=Utility;System;
+Keywords=clean;cleaner;disk;cache;
+StartupNotify=true
+StartupWMClass=dev.zerx.oh-my-clear

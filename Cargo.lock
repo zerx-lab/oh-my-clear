@@ -1384,99 +1384,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dial"
-version = "0.1.0"
-dependencies = [
- "dial-telemetry",
- "dial-ui",
- "gpui-kit",
- "tracing",
-]
-
-[[package]]
-name = "dial-agent"
-version = "0.1.0"
-
-[[package]]
-name = "dial-core"
-version = "0.1.0"
-
-[[package]]
-name = "dial-daemon"
-version = "0.1.0"
-dependencies = [
- "dial-telemetry",
- "tracing",
-]
-
-[[package]]
-name = "dial-engine"
-version = "0.1.0"
-
-[[package]]
-name = "dial-ghostty"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "dial-git"
-version = "0.1.0"
-
-[[package]]
-name = "dial-ipc"
-version = "0.1.0"
-
-[[package]]
-name = "dial-llm"
-version = "0.1.0"
-
-[[package]]
-name = "dial-mcp"
-version = "0.1.0"
-
-[[package]]
-name = "dial-native"
-version = "0.1.0"
-
-[[package]]
-name = "dial-process"
-version = "0.1.0"
-
-[[package]]
-name = "dial-proto"
-version = "0.1.0"
-
-[[package]]
-name = "dial-store"
-version = "0.1.0"
-
-[[package]]
-name = "dial-telemetry"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.21",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "dial-term"
-version = "0.1.0"
-
-[[package]]
-name = "dial-ui"
-version = "0.1.0"
-dependencies = [
- "gpui-kit",
- "rust-i18n",
- "sys-locale",
- "thiserror 2.0.21",
- "tracing",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4778,6 +4685,86 @@ dependencies = [
 ]
 
 [[package]]
+name = "oh-my-clear"
+version = "0.1.0"
+dependencies = [
+ "embed-resource",
+ "gpui-kit",
+ "omc-telemetry",
+ "omc-ui",
+ "tracing",
+]
+
+[[package]]
+name = "oh-my-clear-daemon"
+version = "0.1.0"
+dependencies = [
+ "omc-engine",
+ "omc-ipc",
+ "omc-proto",
+ "omc-telemetry",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "omc-engine"
+version = "0.1.0"
+dependencies = [
+ "omc-ipc",
+ "omc-proto",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "omc-ipc"
+version = "0.1.0"
+dependencies = [
+ "omc-proto",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "omc-proto"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "omc-telemetry"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "omc-ui"
+version = "0.1.0"
+dependencies = [
+ "gpui-kit",
+ "image",
+ "omc-ipc",
+ "rust-i18n",
+ "sys-locale",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6986,8 +6973,21 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
+ "tokio-macros",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.6",
 ]
 
 [[package]]

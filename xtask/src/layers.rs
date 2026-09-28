@@ -1,10 +1,10 @@
-//! Workspace structure invariants (ADR 0008, ADR 0010), run by `cargo xtask layers` and as
-//! the first step of `cargo xtask ci`:
-//! - every member's `dial*` dependencies (normal, dev, build, target-specific) follow [`LAYERS`];
+//! Workspace structure invariants (ADR 0008), run by `cargo xtask layers` and as the first
+//! step of `cargo xtask ci`:
+//! - every member's internal dependencies (`omc-*`, `oh-my-clear*`; normal, dev, build,
+//!   target-specific) follow [`LAYERS`];
 //! - [`CONFINED`] external crates appear only in their owning members (the daemon never links
-//!   gpui, the UI never links adapters);
-//! - every member inherits `[workspace.lints]`, except [`UNSAFE_ISLANDS`], whose own table
-//!   must equal the workspace table apart from `unsafe_code`.
+//!   gpui);
+//! - every member inherits `[workspace.lints]` (so `unsafe_code = "forbid"` holds everywhere).
 //!
 //! Manifests are read as text: members follow the `name.workspace = true` convention, so a
 //! line scanner is enough and xtask stays std-only.
@@ -18,76 +18,26 @@ use crate::{Error, Result};
 /// Allowed internal dependencies per member. Every member must be listed; a new crate or
 /// edge means editing this table (and ADR 0008 when the direction changes).
 const LAYERS: &[(&str, &[&str])] = &[
-    ("dial-proto", &[]),
-    ("dial-core", &["dial-proto"]),
-    ("dial-ipc", &["dial-proto"]),
-    ("dial-telemetry", &[]),
-    ("dial-process", &[]),
-    ("dial-ghostty", &[]),
-    ("dial-term", &["dial-ghostty", "dial-proto"]),
-    ("dial-git", &["dial-process"]),
-    ("dial-store", &["dial-proto"]),
-    ("dial-llm", &[]),
+    ("omc-proto", &[]),
+    ("omc-ipc", &["omc-proto"]),
+    ("omc-telemetry", &[]),
+    ("omc-engine", &["omc-proto", "omc-ipc"]),
+    ("omc-ui", &["omc-proto", "omc-ipc"]),
     (
-        "dial-agent",
-        &["dial-proto", "dial-core", "dial-process", "dial-term"],
+        "oh-my-clear",
+        &["omc-ui", "omc-ipc", "omc-proto", "omc-telemetry"],
     ),
     (
-        "dial-native",
-        &[
-            "dial-proto",
-            "dial-core",
-            "dial-agent",
-            "dial-llm",
-            "dial-process",
-            "dial-git",
-        ],
-    ),
-    ("dial-mcp", &["dial-proto", "dial-core"]),
-    (
-        "dial-engine",
-        &[
-            "dial-proto",
-            "dial-core",
-            "dial-ipc",
-            "dial-process",
-            "dial-term",
-            "dial-git",
-            "dial-store",
-            "dial-llm",
-            "dial-agent",
-            "dial-native",
-            "dial-mcp",
-        ],
-    ),
-    (
-        "dial-ui",
-        &["dial-proto", "dial-core", "dial-term", "dial-ipc"],
-    ),
-    (
-        "dial",
-        &["dial-ui", "dial-ipc", "dial-proto", "dial-telemetry"],
-    ),
-    (
-        "dial-daemon",
-        &["dial-engine", "dial-ipc", "dial-proto", "dial-telemetry"],
+        "oh-my-clear-daemon",
+        &["omc-engine", "omc-ipc", "omc-proto", "omc-telemetry"],
     ),
     ("xtask", &[]),
 ];
 
 /// External crates that only the listed members may depend on directly.
-const CONFINED: &[(&str, &[&str])] = &[
-    ("gpui-kit", &["dial-ui", "dial"]),
-    ("alacritty_terminal", &["dial-process"]),
-    ("agent-client-protocol-schema", &["dial-agent"]),
-];
-
-/// Members allowed to contain `unsafe` (ADR 0010). Cargo cannot override one key of an
-/// inherited lint table, so each island carries a full copy.
-const UNSAFE_ISLANDS: &[&str] = &["dial-ghostty"];
+const CONFINED: &[(&str, &[&str])] = &[("gpui-kit", &["omc-ui", "oh-my-clear"])];
 
 pub(crate) fn check(root: &Path) -> Result<()> {
-    let workspace = read(&root.join("Cargo.toml"))?;
     let mut manifests = Vec::new();
     for group in ["apps", "crates"] {
         let dir = root.join(group);
@@ -107,7 +57,7 @@ pub(crate) fn check(root: &Path) -> Result<()> {
         }
     }
     manifests.push(read(&root.join("xtask").join("Cargo.toml"))?);
-    let problems = violations(&workspace, &manifests);
+    let problems = violations(&manifests);
     if problems.is_empty() {
         Ok(())
     } else {
@@ -122,9 +72,8 @@ fn read(path: &Path) -> Result<String> {
     })
 }
 
-fn violations(workspace: &str, manifests: &[String]) -> Vec<String> {
+fn violations(manifests: &[String]) -> Vec<String> {
     let mut problems = Vec::new();
-    let workspace_lints = lint_entries(workspace, "workspace.lints.");
     let mut seen = BTreeSet::new();
     for text in manifests {
         let Some(name) = package_name(text) else {
@@ -139,7 +88,7 @@ fn violations(workspace: &str, manifests: &[String]) -> Vec<String> {
             continue;
         };
         for dep in dependencies(text) {
-            if dep.starts_with("dial") && !allowed.contains(&dep.as_str()) {
+            if is_internal(&dep) && !allowed.contains(&dep.as_str()) {
                 problems.push(format!(
                     "`{name}` must not depend on `{dep}` (ADR 0008 layering)"
                 ));
@@ -152,7 +101,12 @@ fn violations(workspace: &str, manifests: &[String]) -> Vec<String> {
                 ));
             }
         }
-        problems.extend(lint_problems(name, text, &workspace_lints));
+        let inherits_lints = entries(text).any(|(section, line)| {
+            section == "lints" && line.split_whitespace().collect::<String>() == "workspace=true"
+        });
+        if !inherits_lints {
+            problems.push(format!("`{name}` must set `[lints] workspace = true`"));
+        }
     }
     for (name, _) in LAYERS {
         if !seen.contains(*name) {
@@ -164,30 +118,9 @@ fn violations(workspace: &str, manifests: &[String]) -> Vec<String> {
     problems
 }
 
-fn lint_problems(name: &str, text: &str, workspace_lints: &BTreeSet<String>) -> Vec<String> {
-    let inherits = entries(text).any(|(section, line)| {
-        section == "lints" && line.split_whitespace().collect::<String>() == "workspace=true"
-    });
-    if !UNSAFE_ISLANDS.contains(&name) {
-        return if inherits {
-            Vec::new()
-        } else {
-            vec![format!("`{name}` must set `[lints] workspace = true`")]
-        };
-    }
-    let own = lint_entries(text, "lints.");
-    let mut problems = Vec::new();
-    for missing in workspace_lints.difference(&own) {
-        problems.push(format!(
-            "unsafe island `{name}` lacks workspace lint `{missing}`"
-        ));
-    }
-    for extra in own.difference(workspace_lints) {
-        problems.push(format!(
-            "unsafe island `{name}` has `{extra}`, which differs from [workspace.lints]"
-        ));
-    }
-    problems
+/// Whether `dep` names a workspace member.
+fn is_internal(dep: &str) -> bool {
+    dep.starts_with("omc-") || dep.starts_with("oh-my-clear")
 }
 
 fn lookup<'a>(table: &[(&str, &'a [&'a str])], key: &str) -> Option<&'a [&'a str]> {
@@ -248,23 +181,9 @@ fn dependencies(text: &str) -> BTreeSet<String> {
     deps
 }
 
-/// `rust:key=value` / `clippy:key=value` entries (whitespace removed) of the lint tables
-/// whose header starts with `prefix` (`workspace.lints.` or `lints.`), minus `unsafe_code`.
-fn lint_entries(text: &str, prefix: &str) -> BTreeSet<String> {
-    entries(text)
-        .filter_map(|(section, line)| {
-            let table = section.strip_prefix(prefix)?;
-            let entry: String = line.split_whitespace().collect();
-            (!entry.starts_with("unsafe_code=")).then(|| format!("{table}:{entry}"))
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const WORKSPACE: &str = "[workspace.lints.rust]\nunsafe_code = \"forbid\"\nunreachable_pub = \"warn\"\n\n[workspace.lints.clippy]\nunwrap_used = \"deny\" # no panics\n";
 
     fn member(name: &str, deps: &str) -> String {
         format!("[package]\nname = \"{name}\"\n\n{deps}\n\n[lints]\nworkspace = true\n")
@@ -272,18 +191,7 @@ mod tests {
 
     /// Minimal valid workspace: every LAYERS entry exists with no dependencies.
     fn baseline() -> Vec<String> {
-        LAYERS
-            .iter()
-            .map(|(name, _)| {
-                if UNSAFE_ISLANDS.contains(name) {
-                    format!(
-                        "[package]\nname = \"{name}\"\n[lints.rust]\nunsafe_code = \"deny\"\nunreachable_pub = \"warn\"\n[lints.clippy]\nunwrap_used = \"deny\"\n"
-                    )
-                } else {
-                    member(name, "")
-                }
-            })
-            .collect()
+        LAYERS.iter().map(|(name, _)| member(name, "")).collect()
     }
 
     fn with(name: &str, text: String) -> Vec<String> {
@@ -297,10 +205,10 @@ mod tests {
 
     #[test]
     fn dependency_scanner_sees_every_table_form() {
-        let text = "[package]\nname = \"x\"\ndescription = \"dependencies = none\"\n\n[dependencies]\ndial-core.workspace = true\nserde = { workspace = true, features = [\"derive\"] }\n# dial-engine.workspace = true\n\n[dev-dependencies]\n\"dial-proto\".workspace = true\n\n[target.'cfg(windows)'.dependencies]\nwindows.workspace = true\n\n[dependencies.dial-ipc]\nworkspace = true\nfeatures = [\n  \"client\",\n]\n";
+        let text = "[package]\nname = \"x\"\ndescription = \"dependencies = none\"\n\n[dependencies]\nomc-telemetry.workspace = true\nserde = { workspace = true, features = [\"derive\"] }\n# omc-engine.workspace = true\n\n[dev-dependencies]\n\"omc-proto\".workspace = true\n\n[target.'cfg(windows)'.dependencies]\nwindows.workspace = true\n\n[dependencies.omc-ipc]\nworkspace = true\nfeatures = [\n  \"client\",\n]\n";
         let deps = dependencies(text);
         let expected: BTreeSet<String> =
-            ["dial-core", "serde", "dial-proto", "windows", "dial-ipc"]
+            ["omc-telemetry", "serde", "omc-proto", "windows", "omc-ipc"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect();
@@ -313,30 +221,27 @@ mod tests {
     #[test]
     fn declared_layering_passes() {
         let manifests = with(
-            "dial-ui",
+            "omc-ui",
             member(
-                "dial-ui",
-                "[dependencies]\ndial-proto.workspace = true\ngpui-kit.workspace = true",
+                "omc-ui",
+                "[dependencies]\nomc-proto.workspace = true\ngpui-kit.workspace = true",
             ),
         );
-        let problems = violations(WORKSPACE, &manifests);
+        let problems = violations(&manifests);
         assert!(problems.is_empty(), "allowed edges must pass: {problems:?}");
     }
 
     #[test]
     fn ui_depending_on_engine_is_rejected_even_as_dev_dependency() {
         let manifests = with(
-            "dial-ui",
-            member(
-                "dial-ui",
-                "[dev-dependencies]\ndial-engine.workspace = true",
-            ),
+            "omc-ui",
+            member("omc-ui", "[dev-dependencies]\nomc-engine.workspace = true"),
         );
-        let problems = violations(WORKSPACE, &manifests);
+        let problems = violations(&manifests);
         assert!(
             problems
                 .iter()
-                .any(|p| p.contains("`dial-ui` must not depend on `dial-engine`")),
+                .any(|p| p.contains("`omc-ui` must not depend on `omc-engine`")),
             "UI → engine edge must be reported: {problems:?}"
         );
     }
@@ -344,10 +249,13 @@ mod tests {
     #[test]
     fn daemon_linking_gpui_is_rejected() {
         let manifests = with(
-            "dial-daemon",
-            member("dial-daemon", "[dependencies]\ngpui-kit.workspace = true"),
+            "oh-my-clear-daemon",
+            member(
+                "oh-my-clear-daemon",
+                "[dependencies]\ngpui-kit.workspace = true",
+            ),
         );
-        let problems = violations(WORKSPACE, &manifests);
+        let problems = violations(&manifests);
         assert!(
             problems
                 .iter()
@@ -360,56 +268,33 @@ mod tests {
     fn unknown_member_and_stale_table_entry_are_reported() {
         let mut manifests: Vec<String> = baseline()
             .into_iter()
-            .filter(|m| package_name(m) != Some("dial-llm"))
+            .filter(|m| package_name(m) != Some("omc-telemetry"))
             .collect();
-        manifests.push(member("dial-surprise", ""));
-        let problems = violations(WORKSPACE, &manifests);
+        manifests.push(member("omc-surprise", ""));
+        let problems = violations(&manifests);
         assert!(
             problems
                 .iter()
-                .any(|p| p.contains("`dial-surprise` is missing")),
+                .any(|p| p.contains("`omc-surprise` is missing")),
             "unlisted member: {problems:?}"
         );
         assert!(
             problems
                 .iter()
-                .any(|p| p.contains("LAYERS lists `dial-llm`")),
+                .any(|p| p.contains("LAYERS lists `omc-telemetry`")),
             "stale table entry: {problems:?}"
         );
     }
 
     #[test]
     fn member_without_workspace_lints_is_rejected() {
-        let manifests = with("dial-core", "[package]\nname = \"dial-core\"\n".to_owned());
-        let problems = violations(WORKSPACE, &manifests);
+        let manifests = with("omc-proto", "[package]\nname = \"omc-proto\"\n".to_owned());
+        let problems = violations(&manifests);
         assert!(
             problems
                 .iter()
-                .any(|p| p.contains("`dial-core` must set `[lints] workspace = true`")),
+                .any(|p| p.contains("`omc-proto` must set `[lints] workspace = true`")),
             "missing lint inheritance: {problems:?}"
-        );
-    }
-
-    #[test]
-    fn unsafe_island_lint_drift_is_reported_both_ways() {
-        let Some(island) = UNSAFE_ISLANDS.first() else {
-            return;
-        };
-        let drifted = format!(
-            "[package]\nname = \"{island}\"\n[lints.rust]\nunsafe_code = \"deny\"\n[lints.clippy]\nunwrap_used = \"deny\"\ntodo = \"allow\"\n"
-        );
-        let problems = violations(WORKSPACE, &with(island, drifted));
-        assert!(
-            problems
-                .iter()
-                .any(|p| p.contains("lacks workspace lint `rust:unreachable_pub=\"warn\"`")),
-            "missing lint: {problems:?}"
-        );
-        assert!(
-            problems
-                .iter()
-                .any(|p| p.contains("has `clippy:todo=\"allow\"`")),
-            "extra lint: {problems:?}"
         );
     }
 }

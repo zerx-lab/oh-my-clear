@@ -6,12 +6,12 @@ tags: [gui, design, motion, accessibility, platform]
 # 0011 UI first: quiet keyboard-first design language, Apple-style spring motion on gpui-kit primitives
 
 ## Context and Problem Statement
-The user's first principle is that the UI is refined and beautiful, holds up aesthetically for five years, and follows Apple's motion principles with excellent interaction, on macOS, Windows and Linux. dial needs a design system and a motion model that are enforceable in gpui-kit 0.7.0 code without panics or `unsafe`.
+The user's first principle is that the UI is refined and beautiful, holds up aesthetically for five years, and follows Apple's motion principles with excellent interaction, on macOS, Windows and Linux. oh-my-clear needs a design system and a motion model that are enforceable in gpui-kit 0.7.0 code without panics or `unsafe`.
 
 ## Considered Options
 * Use gpui-component defaults (duration curves; enter-only dialog/sheet/popover animations)
 * Write our own spring solver and animation system
-* Build on the springs gpui already ships (`gpui-pre` `SpringConfig`, gpui-base `Spring` in the Apple parameterisation) and add a small `dial_ui::motion` layer (**chosen**)
+* Build on the springs gpui already ships (`gpui-pre` `SpringConfig`, gpui-base `Spring` in the Apple parameterisation) and add a small `omc_ui::motion` layer (**chosen**)
 
 ## Decision Outcome
 - **Motion model (Apple WWDC18 803 / WWDC23 10158):**
@@ -22,7 +22,7 @@ The user's first principle is that the UI is refined and beautiful, holds up aes
   - Drags track the pointer 1:1.
   - An exit runs at ≈0.7× the enter duration.
   - Duration animations are only for loops and one-shot decoration; decorative loops are capped at 30 fps.
-- **Additions in `dial_ui::motion`:**
+- **Additions in `omc_ui::motion`:**
   - `AnimatedValue`, owned by an entity: survives unmount/virtualization and accepts a release velocity from a 100 ms `VelocityTracker`.
   - A paint-only `Offset` element (`with_element_offset`), so nothing animates layout.
   - `MotionPolicy`: under Reduce Motion, movement becomes a ≤150 ms opacity fade instead of snapping. The OS setting is re-applied on window activation, because gpui-base reads it only at init on macOS/Windows.
@@ -33,8 +33,8 @@ The user's first principle is that the UI is refined and beautiful, holds up aes
   - Stop requesting frames once motion settles.
   - Streaming text gets at most one `notify` per frame, capped at 33 ms. This **replaces** the earlier ~100 ms coalescing, which showed as 10 Hz steps.
 - **Design language:** a quiet, dense instrument, not a website. Content is opaque and calm; chrome is light. One accent color. Motion is feedback, never decoration.
-  - Colors: tokens authored in OKLCH and generated from `base_hue`, `accent` and `contrast`, converted to `Hsla` once at theme load. The conversion is about 25 lines in dial-ui; no color crate. Body text contrast ≥ 4.5:1.
-  - Fonts: **Inter 4.1** for UI and **JetBrains Mono 2.304** for code and terminal. Both are OFL, bundled unmodified, and registered before the first window, because GPUI panics on a missing family.
+  - Colors: tokens authored in OKLCH and generated from `base_hue`, `accent` and `contrast`, converted to `Hsla` once at theme load. The conversion is about 25 lines in omc-ui; no color crate. Body text contrast ≥ 4.5:1.
+  - Fonts: **Inter 4.1** for UI and **JetBrains Mono 2.304** for code and monospace text. Both are OFL, bundled unmodified, and registered before the first window, because GPUI panics on a missing family.
   - Scale: body 13/18. Weights 400/500/600 only.
   - Layout: 4 px grid. Radii 4/6/8/12. Three elevations. Lucide icons at 16 px / 1.5 stroke.
   - Interaction: keyboard-first. Every command is an `Action` in the command palette. `focus_visible` rings are always on. Hit targets ≥ 24 px. Input shows a visible response on the next frame.
@@ -44,7 +44,7 @@ The user's first principle is that the UI is refined and beautiful, holds up aes
 
 ### Consequences
 * Good: Apple-grade motion without a custom solver. One source of tokens. Accessibility handled by construction. Identical typography and density on all three OSes.
-* Bad: gpui-kit's motion APIs are young and change weekly, so they are wrapped behind `dial_ui::motion` and kept on the `=0.7.0` pin. The built-in Dialog/Sheet/Popover have no exit motion until dial replaces them. High refresh rates on Windows/Linux, and Mica's appearance, are unverified.
+* Bad: gpui-kit's motion APIs are young and change weekly, so they are wrapped behind `omc_ui::motion` and kept on the `=0.7.0` pin. The built-in Dialog/Sheet/Popover have no exit motion until the app replaces them. High refresh rates on Windows/Linux, and Mica's appearance, are unverified.
 
 ## Evidence
 - docs/research/2026-09-28-ui-motion.md: Apple sources mapped to numbers; gpui-pre 0.3.7 `src/spring.rs`, gpui-base 0.7.0 `src/motion.rs:442-555`, `reduce_motion.rs`, and `window.rs:2622`, read in source; a 120 Hz probe measuring an 8.33 ms median frame (2026-09-28)

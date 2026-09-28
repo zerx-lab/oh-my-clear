@@ -15,8 +15,8 @@ The user requires exactly one best crate per category (no parallel error-handlin
 
 ## Decision Outcome
 - Gate = `deny.toml` (advisories incl. `unmaintained = "workspace"`, `unsound = "all"`, `yanked = "deny"`; license allowlist; category bans with gpui `wrappers`; `std-replacements`; `workspace-dependencies` dedup; crates.io only, git deps need `rev`) + `skill://dep-review` checklist + `docs/memory/deps.md` ledger. cargo-vet/crev: too heavy for now. All deps declared in root `[workspace.dependencies]`.
-- Errors: **thiserror only** as a direct dependency. GPUI's `anyhow::Result` is converted at the UI edge (`map_err` into our enum) — no direct anyhow. Chosen over thiserror+anyhow because the user explicitly wants a single error-handling crate; typed enums are needed anyway for orchestration (process exit vs protocol vs git errors).
-- Runtime: **tokio** for all I/O (processes, HTTP, MCP), one runtime owned in a GPUI `Global`, bridged to GPUI executors via channels/awaited `JoinHandle`s. smol is banned as a direct dep (allowed only through gpui wrappers). Chosen because reqwest, rmcp, and process-wrap are tokio-native and gpui-kit docs prescribe a separate tokio runtime for reqwest; Zeron uses the same stack.
+- Errors: **thiserror only** as a direct dependency. GPUI's `anyhow::Result` is converted at the UI edge (`map_err` into our enum) — no direct anyhow. Chosen over thiserror+anyhow because the user explicitly wants a single error-handling crate; typed enums are needed anyway to tell I/O, permission and protocol failures apart.
+- Runtime: **tokio** for all I/O (daemon, IPC); the UI owns one tokio runtime in a GPUI `Global` for its IPC client, bridged to GPUI executors via channels/awaited `JoinHandle`s. smol is banned as a direct dep (allowed only through gpui wrappers). Chosen because UDS/named pipes, processes and HTTP are tokio-native and gpui-kit docs prescribe a separate tokio runtime for tokio-based clients.
 - Other picks are listed in `docs/memory/deps.md` (status `chosen`); reuse crates gpui already brings (parking_lot, chrono, uuid, async-channel, serde_json).
 
 ### Consequences
@@ -24,4 +24,4 @@ The user requires exactly one best crate per category (no parallel error-handlin
 * Bad, because anyhow/smol remain in the transitive graph via gpui; the rule governs direct dependencies. `multiple-versions` is only `warn`.
 
 ## Evidence
-- docs/research/2026-09-28-rust-gates.md §4–5, docs/research/2026-09-28-orchestrators.md §3 (crates.io/GitHub/RustSec data 2026-09-28)
+- docs/research/2026-09-28-rust-gates.md §4–5 (crates.io/GitHub/RustSec data 2026-09-28)

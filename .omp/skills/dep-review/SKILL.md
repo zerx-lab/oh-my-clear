@@ -31,7 +31,7 @@ Collect via crates.io API (`https://crates.io/api/v1/crates/<name>`), GitHub API
 Any hard fail (1, 3, 6, or an existing pick in the category) → reject, or escalate to the user with evidence.
 
 ## 3. Apply
-1. Add to root `[workspace.dependencies]` with an exact-enough requirement (pre-1.0 fast movers such as gpui-kit / ACP schema: `=X.Y.Z`). Members: `name.workspace = true`.
+1. Add to root `[workspace.dependencies]` with an exact-enough requirement (pre-1.0 fast movers such as gpui-kit: `=X.Y.Z`). Members: `name.workspace = true`.
 2. If it creates a new category or replaces a crate: add a `deny.toml` `[bans] deny` entry for the obvious alternatives (with `wrappers` if gpui pulls them transitively), and write an ADR (`skill://memory`).
 3. Update the `docs/memory/deps.md` row (category, crate, version req, ADR, dates, evidence, rejected alternatives).
 4. Run the gates:

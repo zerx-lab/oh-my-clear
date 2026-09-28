@@ -61,13 +61,13 @@
     "cwd": "$ZED_WORKTREE_ROOT"
   },
   {
-    "label": "run: dial",
+    "label": "run: oh-my-clear",
     "command": "cargo",
-    "args": ["dial"],
+    "args": ["omc"],
     "cwd": "$ZED_WORKTREE_ROOT"
   },
   {
-    "label": "run: dial-daemon (foreground)",
+    "label": "run: oh-my-clear-daemon (foreground)",
     "command": "cargo",
     "args": ["daemon"],
     "cwd": "$ZED_WORKTREE_ROOT"
@@ -79,9 +79,9 @@
     "cwd": "$ZED_WORKTREE_ROOT"
   },
   {
-    "label": "run: dial (RUST_LOG=trace)",
+    "label": "run: oh-my-clear (RUST_LOG=trace)",
     "command": "cargo",
-    "args": ["dial"],
+    "args": ["omc"],
     "env": { "RUST_LOG": "trace" },
     "cwd": "$ZED_WORKTREE_ROOT"
   }

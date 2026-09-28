@@ -6,7 +6,7 @@ tags: [memory, process]
 # 0001 Record decisions as ADRs; file-based self-iterating memory in docs/memory
 
 ## Context and Problem Statement
-dial is built mostly by omp agents across many sessions and parallel subagents. Knowledge (decisions, gotchas, dependency evidence, progress) must survive sessions, be shared through git, cost little always-loaded context, and improve itself without installing software.
+oh-my-clear is built mostly by omp agents across many sessions and parallel subagents. Knowledge (decisions, gotchas, dependency evidence, progress) must survive sessions, be shared through git, cost little always-loaded context, and improve itself without installing software.
 
 ## Considered Options
 * omp built-in memory (`memory.backend: local`, `learn`, hindsight/mnemopi)

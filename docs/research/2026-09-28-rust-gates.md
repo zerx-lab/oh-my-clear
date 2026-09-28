@@ -1,6 +1,6 @@
 <!-- Research snapshot 2026-09-28 (bootstrap session). Point-in-time evidence: versions/dates/activity go stale; /tmp paths mentioned below no longer exist. Decisions derived from this live in docs/memory/decisions/. -->
 
-# Rust quality gates for `dial` (no-panic, one-crate-per-category)
+# Rust quality gates for `oh-my-clear` (no-panic, one-crate-per-category)
 
 Toolchain these were checked against: rustc/clippy **1.98.0 (2026-08-18)**, cargo-nextest **0.9.146**, cargo-deny **0.20.2**, rustup 1.29.1.
 Scratch crate: `/tmp/gatecheck`, with `gpui-kit 0.7` + tokio + reqwest 0.13 + serde + thiserror + anyhow + tracing added. **Every config block below ran clean there**: `cargo clippy … -D warnings` exited 0, `cargo nextest run --profile ci` wrote a JUnit file, `cargo deny check` printed `advisories ok, bans ok, licenses ok, sources ok`, and `cargo fmt --check` exited 0. Anything not tested that way is marked [UNVERIFIED].
@@ -146,7 +146,7 @@ What the scratch crate showed: `.unwrap()`, `.expect()` and `v[0]` inside `#[cfg
   - For gpui geometry types the entry would be something like `"geometry::Pixels"` [UNVERIFIED — confirm the path against the gpui-pre source before adding].
   - If it is too noisy in the UI crate, put a crate-level `#![expect(clippy::arithmetic_side_effects, reason = "gpui f32 geometry newtypes")]` there only.
 - **pedantic = warn, nursery = off**: pedantic is still `-D warnings` in CI and has real signal. The noisy pedantic lints are set to allow above. Nursery lints are unstable and churn between releases; only `fallible_impl_from` is taken from it.
-- **`unsafe_code = "forbid"`**: correct for an app built on gpui-kit, since the platform FFI lives in dependencies. If a crate ever needs unsafe (Windows ConPTY or objc glue), put that crate outside the lint inheritance. Don't downgrade the workspace level. `undocumented_unsafe_blocks` is already on for that case.
+- **`unsafe_code = "forbid"`**: correct for an app built on gpui-kit, since the platform FFI lives in dependencies. If a crate ever needs unsafe (Windows API or objc glue), put that crate outside the lint inheritance. Don't downgrade the workspace level. `undocumented_unsafe_blocks` is already on for that case.
 - **`missing_docs`: off.** This is an app, not a public library. Turn on `missing_docs = "warn"` only in crates you designate as internal APIs. `missing_panics_doc` isn't needed because panics are banned.
 - **`unused_crate_dependencies`: off.** It gives false positives with dev-deps and multiple targets. Use cargo-shear or cargo-machete instead (§5).
 - **CI command**: `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`.
@@ -174,13 +174,13 @@ Remaining risk at runtime: a panic hook plus crash reporting (§2).
 
 | | unwind (recommended) | abort |
 |---|---|---|
-| Panic in a tokio task | Isolated. `JoinHandle` returns a `JoinError` (panic); that agent session fails, but the UI and the other agents keep running | Whole app dies, taking every agent session and PTY with it |
-| Cleanup (kill child agent processes, flush session state) | `Drop` impls run while unwinding | No `Drop` runs, so orphaned child processes are likely |
+| Panic in a tokio task | Isolated. `JoinHandle` returns a `JoinError` (panic); that task fails, but the UI and the other tasks keep running | Whole app dies, taking every in-flight task with it |
+| Cleanup (kill child processes, flush state) | `Drop` impls run while unwinding | No `Drop` runs, so orphaned child processes are likely |
 | Binary size / speed | Slightly larger, with landing pads | Smaller and slightly faster |
 | FFI safety | Since Rust 1.81 an unwind that reaches an `extern "C"` boundary aborts anyway, so objc/win32 callbacks are safe | Same |
 | `catch_unwind` | Works | Does nothing |
 
-For a multi-agent orchestrator, containing failures matters more than a few percent of binary size. The hook still runs under `abort`, so crash logging works either way.
+For a desktop app running long background jobs, containing failures matters more than a few percent of binary size. The hook still runs under `abort`, so crash logging works either way.
 
 Suggested release profile [partly UNVERIFIED — tune after measuring]:
 ```toml
@@ -419,10 +419,10 @@ Other deny rules:
 |---|---|---|---|
 | Errors (library/domain crates) | **thiserror** | 2.0.21 (2026-09-23), MSRV 1.77 | Typed `enum` errors callers can match on. gpui already depends on it. |
 | Errors (app edge / gpui glue) | **anyhow** | 1.0.104 (2026-07-18), MSRV 1.68 | **gpui's API uses `anyhow::Result`** (`HttpClient`, `Task<anyhow::Result<_>>`), so it is unavoidable at the UI edge. Rule: anyhow only in the app/UI crate; domain crates expose thiserror types. snafu (0.9.2) and eyre/color-eyre are banned in deny.toml. |
-| Async runtime (I/O, processes, network) | **tokio** | 1.53.1 (2026-07-20), MSRV 1.71 | gpui's executor runs the UI and does not drive tokio I/O. The gpui-kit docs say so: "reqwest needs a tokio runtime; GPUI's executors are not one" and build a `LazyLock<tokio::runtime::Runtime>`. reqwest, `rmcp` 3.5.0 (MCP SDK) and the gpui-pre-reqwest-client all require tokio. smol stays transitive-only, enforced by the `wrappers` ban. Pattern: one owned multi-thread runtime; bridge results to gpui through channels or by awaiting the `JoinHandle` inside `cx.background_spawn`. |
-| HTTP client | **reqwest 0.13** | 0.13.5 (2026-09-08), MSRV 1.85 | Streaming (SSE for LLM APIs), HTTP/2, proxy support. Default TLS in 0.13 = rustls with aws-lc-rs (`default-tls → rustls → __rustls-aws-lc-rs`). Use `default-features = false, features = ["rustls", "http2", "json", "stream", "charset", "system-proxy"]`. ureq 3.4.2 is sync-only, so it would mean a second blocking I/O model → rejected. Note that `gpui-pre-reqwest-client` pulls a *fork* `gpui-pre-reqwest ^0.12.15`; prefer writing a small `HttpClient` adapter over upstream reqwest 0.13 (as the gpui-kit caching example does) to avoid a second reqwest. [UNVERIFIED] aws-lc-sys build requirements on Windows (cmake/NASM); `rustls-no-provider` plus an explicit provider is the fallback. |
+| Async runtime (I/O, processes, network) | **tokio** | 1.53.1 (2026-07-20), MSRV 1.71 | gpui's executor runs the UI and does not drive tokio I/O. The gpui-kit docs say so: "reqwest needs a tokio runtime; GPUI's executors are not one" and build a `LazyLock<tokio::runtime::Runtime>`. reqwest and the gpui-pre-reqwest-client both require tokio. smol stays transitive-only, enforced by the `wrappers` ban. Pattern: one owned multi-thread runtime; bridge results to gpui through channels or by awaiting the `JoinHandle` inside `cx.background_spawn`. |
+| HTTP client | **reqwest 0.13** | 0.13.5 (2026-09-08), MSRV 1.85 | Streaming, HTTP/2, proxy support. Default TLS in 0.13 = rustls with aws-lc-rs (`default-tls → rustls → __rustls-aws-lc-rs`). Use `default-features = false, features = ["rustls", "http2", "json", "stream", "charset", "system-proxy"]`. ureq 3.4.2 is sync-only, so it would mean a second blocking I/O model → rejected. Note that `gpui-pre-reqwest-client` pulls a *fork* `gpui-pre-reqwest ^0.12.15`; prefer writing a small `HttpClient` adapter over upstream reqwest 0.13 (as the gpui-kit caching example does) to avoid a second reqwest. [UNVERIFIED] aws-lc-sys build requirements on Windows (cmake/NASM); `rustls-no-provider` plus an explicit provider is the fallback. |
 | Serialization | **serde** + **serde_json** | 1.0.229 (2026-07-18) / 1.0.151 (2026-07-20) | Already brought in by gpui. Config files: **toml** 1.1.6 (2026-09-10), only if a TOML config is needed. |
-| Logging / diagnostics | **tracing** + **tracing-subscriber** (+ **tracing-appender** for file rotation) | 0.1.44 (2025-12-18) / 0.3.23 (2026-03-13) / 0.2.5 (2026-04-17), all MIT | Spans per agent session and per async task. gpui itself logs through `log`, so enable tracing-subscriber's `tracing-log` bridge (default feature [UNVERIFIED for 0.3.23 defaults]) rather than a second logger. env_logger, fern and simplelog are banned. |
+| Logging / diagnostics | **tracing** + **tracing-subscriber** (+ **tracing-appender** for file rotation) | 0.1.44 (2025-12-18) / 0.3.23 (2026-03-13) / 0.2.5 (2026-04-17), all MIT | Spans per job and per async task. gpui itself logs through `log`, so enable tracing-subscriber's `tracing-log` bridge (default feature [UNVERIFIED for 0.3.23 defaults]) rather than a second logger. env_logger, fern and simplelog are banned. |
 | CLI args | **none for now**; if needed, **clap** 4.6.7 (2026-09-14, MSRV 1.85) with `derive` | – | A GUI app usually needs nothing, and `std::env::args` is enough for `--profile`-style flags. argh 0.1.19 (BSD-3) is smaller but less maintained. |
 | Locks | **parking_lot** 0.12.5 (already via gpui) or `std::sync` | – | Pick one; parking_lot matches gpui and has no lock poisoning, so no `lock().unwrap()`. |
 | Channels | **tokio::sync** inside the runtime; **async-channel** (via gpui) for UI↔worker | – | Don't add flume or crossbeam-channel directly. |
@@ -431,9 +431,7 @@ Other deny rules:
 | Global/lazy statics | `std::sync::LazyLock` / `OnceLock` | std | lazy_static and once_cell are blocked by `std-replacements`. |
 
 Not decided here (future categories that need their own gate):
-- PTY for spawning CLI agents: `portable-pty` 0.9.0, last release 2025-02-11. That is >12 months ago, so it **fails criterion 2** and needs a closer look.
 - Persistence: `rusqlite` 0.40.2 vs files.
-- Git: `gix` vs `git2`.
 
 ---
 

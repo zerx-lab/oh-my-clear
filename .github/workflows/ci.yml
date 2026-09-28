@@ -1,6 +1,5 @@
-# Gates on all three desktop platforms (ADR 0008/0010). Mirrors `cargo ci`:
-# xtask layers → fmt → clippy → nextest → deny. Windows builds libghostty-vt natively
-# (MSVC archive cannot be cross-built), so each OS builds its own.
+# Gates on all three desktop platforms (ADR 0008). Mirrors `cargo ci`:
+# xtask layers → fmt → clippy → nextest → deny.
 name: ci
 
 on:
@@ -15,7 +14,6 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
-  ZIG_VERSION: 0.16.0
 
 jobs:
   gates:
@@ -27,35 +25,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          submodules: true
 
       - name: Rust toolchain (rust-toolchain.toml)
         run: rustup show active-toolchain || rustup toolchain install
-
-      - uses: mlugg/setup-zig@v2
-        with:
-          version: ${{ env.ZIG_VERSION }}
 
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest,cargo-deny
 
       - uses: Swatinem/rust-cache@v2
-
-      # zig's own build cache for libghostty-vt (build.rs puts it in target/ and shares it
-      # across profiles); keyed per commit, restored from the latest one of the same OS.
-      - name: Cache Ghostty zig build cache
-        uses: actions/cache@v4
-        with:
-          path: target/ghostty-zig-cache
-          key: ghostty-zig-${{ runner.os }}-${{ github.sha }}
-          restore-keys: ghostty-zig-${{ runner.os }}-
-
-      # `--fetch=all`: libghostty-vt's deps are lazy; plain `--fetch` misses them.
-      # Fills the zig global cache (cached by setup-zig) and third_party/ghostty/zig-pkg.
-      - name: Fetch Ghostty zig packages (offline builds afterwards)
-        run: zig build --build-file third_party/ghostty/build.zig --fetch=all
 
       - name: layers
         run: cargo xtask layers

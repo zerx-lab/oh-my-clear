@@ -1,8 +1,8 @@
 <!-- Research snapshot 2026-09-28 (bootstrap session). Point-in-time evidence: versions/dates/activity go stale; /tmp paths mentioned below no longer exist. Decisions derived from this live in docs/memory/decisions/. -->
 
-# File-based, self-iterating memory for `dial` — research + recommended design
+# File-based, self-iterating memory for `oh-my-clear` — research + recommended design
 
-Scope: zero-install (plain Markdown in git), agent-maintained memory for a Rust multi-agent orchestration desktop app developed by omp agents. Everything below was checked against the cited docs on 2026-09-28 unless marked [UNVERIFIED].
+Scope: zero-install (plain Markdown in git), agent-maintained memory for a Rust desktop app developed by omp agents. Everything below was checked against the cited docs on 2026-09-28 unless marked [UNVERIFIED].
 
 ---
 
@@ -23,7 +23,7 @@ Source: `omp://context-files.md`, `omp://rulebook-matching-pipeline.md`, `omp://
 
 ## 1. Comparison table
 
-| System | Structure | Load strategy | Update triggers | Decay / pruning | Conflict handling | Fit for `dial` |
+| System | Structure | Load strategy | Update triggers | Decay / pruning | Conflict handling | Fit for `oh-my-clear` |
 |---|---|---|---|---|---|---|
 | **Cline Memory Bank** ([docs](https://docs.cline.bot/best-practices/memory-bank)) | `memory-bank/` with 6 fixed files: `projectbrief.md`, `productContext.md`, `activeContext.md`, `systemPatterns.md`, `techContext.md`, `progress.md` | **Read ALL files at start of EVERY task** (rule text: "I MUST read ALL memory bank files") | New patterns discovered; after significant changes; user says "update memory bank" (must review ALL files); context needs clarification | None defined; relies on rewrite during "update memory bank" | None; hierarchy `projectbrief` is "source of truth for project scope" | Good taxonomy (active context / progress split); **bad load strategy** — reading everything every task wastes context and scales poorly |
 | **Roo Code Memory Bank** (community, [README](https://github.com/GreatScottyMac/roo-code-memory-bank)) | `memory-bank/{activeContext,productContext,progress,decisionLog,systemPatterns}.md` + optional `projectBrief.md`; per-mode YAML strategies | Read at session start per mode | Per-mode "real-time update triggers" (architect: decisions; debug: bug discoveries, fix verifications) | None | None | Adds `decisionLog.md` (append log) — ADRs are a stronger version. Author moved on to an MCP server (Context Portal) → methodology not maintained |
@@ -46,7 +46,7 @@ Source: `omp://context-files.md`, `omp://rulebook-matching-pipeline.md`, `omp://
 
 ---
 
-## 2. Recommended design for `dial`
+## 2. Recommended design for `oh-my-clear`
 
 ### 2.1 Location & layout
 
@@ -68,7 +68,7 @@ docs/memory/
   progress.md                    # milestone checklist + last-10 session log
   lessons.md                     # errata / lessons learned (L-NNNN entries)
   deps.md                        # dependency ledger: one crate per category + review evidence
-  glossary.md                    # domain terms (agent, orchestrator, worktree, session, …)
+  glossary.md                    # domain terms
   decisions/
     0000-template.md
     0001-record-architecture-decisions.md
@@ -140,7 +140,7 @@ status: proposed | accepted | superseded | deprecated
 date: YYYY-MM-DD
 supersedes: NNNN            # optional
 superseded-by: NNNN         # set only when superseded
-tags: [deps, runtime, gui, orchestration, ...]
+tags: [deps, runtime, gui, ipc, ...]
 ---
 # NNNN <short title of solved problem and chosen solution>
 

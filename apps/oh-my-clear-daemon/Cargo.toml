@@ -1,0 +1,19 @@
+[package]
+name = "oh-my-clear-daemon"
+description = "oh-my-clear execution layer: headless background daemon that outlives the UI; no gpui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+omc-engine.workspace = true
+omc-ipc.workspace = true
+omc-proto.workspace = true
+omc-telemetry.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
+tracing.workspace = true
+
+[lints]
+workspace = true

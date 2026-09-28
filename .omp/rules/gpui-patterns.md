@@ -3,9 +3,9 @@ description: gpui-kit/GPUI UI code patterns and pitfalls — read before writing
 globs: ["**/*.rs"]
 ---
 
-# gpui-kit / GPUI patterns for dial
+# gpui-kit / GPUI patterns for oh-my-clear
 
-Dependency: `gpui-kit` only (umbrella; re-exports GPUI as `use gpui_kit::*;`). Never add `gpui`, `gpui-pre*`, or `gpui-component` separately — gpui-kit pins the exact `gpui-pre` snapshot. Pin `gpui-kit = "=X.Y.Z"`; dev-dep adds `features = ["test-support"]`. Only `dial-ui` and `apps/dial` may depend on it (`cargo xtask layers`); the daemon never links gpui. Docs: https://gpui-kit.com/llms.txt, per page `https://gpui-kit.com/<path>.md` (e.g. `/component/dock.md`).
+Dependency: `gpui-kit` only (umbrella; re-exports GPUI as `use gpui_kit::*;`). Never add `gpui`, `gpui-pre*`, or `gpui-component` separately — gpui-kit pins the exact `gpui-pre` snapshot. Pin `gpui-kit = "=X.Y.Z"`; dev-dep adds `features = ["test-support"]`. Only `omc-ui` and `apps/oh-my-clear` may depend on it (`cargo xtask layers`); the daemon never links gpui. Docs: https://gpui-kit.com/llms.txt, per page `https://gpui-kit.com/<path>.md` (e.g. `/component/dock.md`).
 
 Design, tokens and motion: follow `rule://ui-design-motion` (ADR 0011).
 
@@ -23,15 +23,15 @@ Design, tokens and motion: follow `rule://ui-design-motion` (ADR 0011).
 ## Async
 - `Task` cancels on drop: store it (`Option<Task<()>>`), await it, or `.detach()`. Never call `cx.spawn(..);` bare. Never spawn unconditionally in `render`.
 - `cx.spawn(async move |this, cx| …)` foreground; `cx.background_spawn` for CPU work on owned `Send` data. Guard stale results with a revision/request id.
-- GPUI executors are not tokio. The UI process's only I/O is the dial-ipc connection to `dial-daemon` (ADR 0008): its tokio runtime lives in a `Global` (built fallibly at startup); bridge via bounded `async-channel` or by awaiting tokio `JoinHandle`s inside GPUI tasks. Never spawn agents, PTYs, git or HTTP from the UI — send a `Command` through `EngineHandle`.
-- Streams (tokens, terminal bytes): at most one `cx.notify()` per frame per view, coalescing capped at 33 ms; heavy parsing via `background_spawn`.
-- The daemon may be absent or restarting: every view renders a disconnected/reconnecting state, and resyncs from `subscribe{since}` / snapshots after reconnect.
+- GPUI executors are not tokio. The UI process's only I/O is the omc-ipc connection to `oh-my-clear-daemon` (ADR 0008): its tokio runtime lives in a `Global` (built fallibly at startup); bridge via bounded `async-channel` or by awaiting tokio `JoinHandle`s inside GPUI tasks. Never do filesystem/system work or HTTP from the UI — send a request through `EngineHandle`.
+- Streams (scan progress, logs): at most one `cx.notify()` per frame per view, coalescing capped at 33 ms; heavy parsing via `background_spawn`.
+- The daemon may be absent or restarting: every view renders a disconnected/reconnecting state, and re-requests its daemon state after a reconnect (a new epoch drops caches).
 
 ## Actions / keys
 `actions!(ns, [A, B])`; unique names (duplicates panic at startup). Bind with `KeyBinding::load` + `KeyBindingContextPredicate::parse` (not `KeyBinding::new`). Dispatch needs a focused element with matching `key_context`. `secondary` = Cmd on macOS / Ctrl elsewhere.
 
 ## Components worth reusing (gpui_kit::component::…)
-Dock (persisted panel layout), Resizable, MessageScroller (virtualized tail-follow transcript), TextView (streaming markdown), VirtualList, List/ListDelegate, DataTable, Tree, Input/Textarea/Editor, Tabs, Notification, Dialog/Sheet, Command palette, Sidebar/TitleBar/StatusBar. No terminal component — render `dial-term` (libghostty-vt RenderState) in a custom element; key/mouse input goes through libghostty-vt encoders (ADR 0010).
+Dock (persisted panel layout), Resizable, TextView, VirtualList, List/ListDelegate, DataTable, Tree, Input/Textarea, Tabs, Notification, Dialog/Sheet, Command palette, Sidebar/TitleBar/StatusBar, Progress.
 
 ## Tests
 `#[gpui_kit::test] fn t(cx: &mut TestAppContext)` expands to `#[test]` → runs under nextest. In test modules import explicitly; `use gpui_kit::*;` shadows `#[test]`.

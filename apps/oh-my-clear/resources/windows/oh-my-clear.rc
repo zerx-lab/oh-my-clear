@@ -1,0 +1,3 @@
+// Icon resource 1: gpui registers its window class with `LoadImageW(.., 1, IMAGE_ICON, ..)`,
+// so the taskbar and Alt-Tab show this icon; Explorer shows it for the .exe.
+1 ICON "oh-my-clear.ico"

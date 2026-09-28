@@ -7,10 +7,12 @@ new-crate = "xtask new-crate"
 lint = "clippy --workspace --all-targets --all-features --locked -- -D warnings"
 # Shadows the built-in `cargo t` (= cargo test) so the shorthand runs nextest.
 t = "nextest run --workspace --all-features --locked"
-dial = "run --package dial --"
-daemon = "run --package dial-daemon --"
+# Builds oh-my-clear-daemon first: the GUI spawns it from its own target directory. On macOS
+# it runs the GUI from target/debug/oh-my-clear.app so the Dock shows the app icon (ADR 0018).
+omc = "xtask omc"
+daemon = "run --package oh-my-clear-daemon --"
 
 # Defaults for `cargo run` / `cargo nextest run`; a value already set in the shell wins.
 [env]
 RUST_BACKTRACE = "1"
-RUST_LOG = "info,dial=debug"
+RUST_LOG = "info,omc=debug,oh_my_clear=debug"

@@ -1,0 +1,28 @@
+[package]
+name = "omc-ui"
+description = "gpui-kit views of oh-my-clear, design tokens and spring motion."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false # cargo-nextest is the only runner (ADR 0006)
+
+[dependencies]
+omc-ipc.workspace = true
+gpui-kit.workspace = true
+rust-i18n.workspace = true
+sys-locale.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+tracing.workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+image.workspace = true
+
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }
+
+[lints]
+workspace = true

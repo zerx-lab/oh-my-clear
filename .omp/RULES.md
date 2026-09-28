@@ -1,8 +1,9 @@
-# dial — non-negotiables (sent every request)
+# oh-my-clear — non-negotiables (sent every request)
 
 - **No panics in Rust** outside `#[cfg(test)]`: no `unwrap`/`expect`/`panic!`/`todo!`/`unimplemented!`/`unreachable!`, no `v[i]`/`&s[a..b]`, no unchecked integer arithmetic. Use `?` + the crate's `thiserror` error enum, `.get()`, `checked_*`/`saturating_*`, `let … else`, `ok_or_else`. Lint suppression only as `#[expect(lint, reason = "…")]`; `#[allow]` fails the build.
 - **Tests run with `cargo nextest run`**, never `cargo test` (doctests are disabled; examples are nextest tests).
 - **One crate per category.** Adding/replacing a dependency requires `skill://dep-review`, a row in `docs/memory/deps.md`, and a passing `cargo deny --all-features check`. Reuse crates gpui-kit already pulls in before adding new ones.
-- **Architecture** (ADRs 0008–0011): `dial` (GUI) and `dial-daemon` (execution) are separate processes; crate edges follow `LAYERS` in `xtask/src/layers.rs` (UI never links engine/adapters, daemon never links gpui). `unsafe` only in `UNSAFE_ISLANDS` (today `dial-ghostty`, libghostty-vt FFI). UI code follows `rule://ui-design-motion`.
+- **Product**: oh-my-clear is a cross-platform (macOS/Windows/Linux) system-cleaning desktop app (ADR 0017).
+- **Architecture** (ADRs 0008, 0011, 0013): `oh-my-clear` (GUI) and `oh-my-clear-daemon` (execution) are separate processes; crate edges follow `LAYERS` in `xtask/src/layers.rs` (UI never links the engine, daemon never links gpui). `unsafe_code = "forbid"` in every crate; introducing `unsafe` needs a new ADR. UI code follows `rule://ui-design-motion`.
 - **Done = all gates green** (`cargo ci`): `cargo xtask layers`, `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`, `cargo nextest run --workspace --all-features --locked`, `cargo deny --all-features check`.
 - **Memory**: `docs/memory/` records development rules and their reasons; follow `rule://memory-protocol`. Never write progress, milestones, schedules, roadmaps, next-step lists or session logs (in memory, ADRs, AGENTS.md or docs). Subagents never edit memory — they return "memory candidates".

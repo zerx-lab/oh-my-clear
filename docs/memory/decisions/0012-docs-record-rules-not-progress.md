@@ -20,7 +20,7 @@ The user ruled that the project must not design progress or schedules; it only p
   - The always-apply `rule://memory-protocol` and `skill://memory` state the rule.
   - `.omp/RULES.md` and `AGENTS.md` carry it as a non-negotiable.
   - The TTSR rule `docs-no-schedule` fires on schedule vocabulary in `*.md` edits.
-- Amends ADR 0001 (its memory tiers). Superseded ADR 0005 and the earlier research snapshots stay as historical evidence.
+- Amends ADR 0001 (its memory tiers). The earlier research snapshots stay as historical evidence.
 
 ### Consequences
 * Good: memory stays small and always true. Nothing in the repo goes stale because a plan changed.

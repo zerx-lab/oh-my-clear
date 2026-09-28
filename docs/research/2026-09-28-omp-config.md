@@ -1,6 +1,6 @@
 <!-- Research snapshot 2026-09-28 (bootstrap session). Point-in-time evidence: versions/dates/activity go stale; /tmp paths mentioned below no longer exist. Decisions derived from this live in docs/memory/decisions/. -->
 
-# omp project-level configuration — research for `dial`
+# omp project-level configuration — research for `oh-my-clear`
 
 Sources read: `omp://context-files.md`, `omp://rulebook-matching-pipeline.md`, `omp://ttsr-injection-lifecycle.md`, `omp://memory.md`, `omp://skills.md`, `omp://settings.md`, `omp://config-usage.md`, `omp://magic-keywords.md`, `omp://hooks.md`, `omp://task-agent-discovery.md`, `omp://tools/{learn,retain,recall,reflect,memory_edit,context-notes}.md`, `omp://mnemosyne-memory-backend.md`.
 Also verified against the installed omp package (`~/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/src/…`), `omp config list --json`, and `omp ttsr list/test` in throwaway dirs under `/tmp` (not in the repo).
@@ -9,7 +9,7 @@ Also verified against the installed omp package (`~/.bun/install/global/node_mod
 
 ## 1. Where project-level files live (exact paths + precedence)
 
-All paths relative to the repo root `dial/`. **Launch omp from the repo root** — several native loaders are cwd-only.
+All paths relative to the repo root. **Launch omp from the repo root** — several native loaders are cwd-only.
 
 | Path | What | Discovery rule | Source |
 |---|---|---|---|
@@ -30,7 +30,7 @@ Rule provider precedence (dedup by rule **name**, first wins): `native` (100: pr
 
 Context-file injection order: farther ancestors first, then closer, then the single user file (`~/.omp/agent/AGENTS.md`, which exists on this machine). Deeper `AGENTS.md` below cwd are only listed as pointers in `<dir-context>`.
 
-### Recommendation for `dial`
+### Recommendation for `oh-my-clear`
 - Put the canonical instructions in **root `AGENTS.md`** (tool-agnostic: Codex, Cursor etc. read it too). **Do not also create `.omp/AGENTS.md`** — it would shadow root `AGENTS.md` at depth 0.
 - Don't create a separate standalone `CLAUDE.md` with different content (provider `claude-md`, same priority 10 as `agents-md`, same depth → one of them is dropped; tie-break order [UNVERIFIED]). If wanted for Claude Code, make `CLAUDE.md` a symlink to `AGENTS.md` (byte-identical files are collapsed).
 - Use `.omp/RULES.md` for the handful of non-negotiables (no panics, nextest only, dependency gate) — it stays in context through long sessions. Keep it short.
@@ -113,7 +113,7 @@ Verification: in `/tmp/ttsr-proj/.omp/rules/` (git repo) `omp ttsr list` listed 
 
 Registration is skipped (warning only) on invalid regex, duplicate name, or a scope that excludes all streams.
 
-### Verified TTSR rules for `dial`
+### Verified TTSR rules for `oh-my-clear`
 
 All three verified with `omp ttsr test --rule <file> …` (outputs quoted below) and loaded as `[native]` from `.omp/rules/` in a throwaway repo.
 

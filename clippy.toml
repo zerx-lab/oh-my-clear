@@ -7,4 +7,4 @@ allow-indexing-slicing-in-tests = true
 allow-print-in-tests = true
 # arithmetic-side-effects-allowed = []  # paths are crate-internal, e.g. "geo::Px" (not "Px", not "mycrate::geo::Px")
 # Product names that doc_markdown would otherwise demand backticks for; ".." keeps the defaults.
-doc-valid-idents = ["OpenAI", "DeepSeek", "LM Studio", "JetBrains", "SemiBold", ".."]
+doc-valid-idents = ["OpenAI", "DeepSeek", "LM Studio", "JetBrains", "SemiBold", "CleanMyMac", ".."]
