@@ -1,6 +1,20 @@
 # Lessons learned
 <!-- Newest first. ≤40 active entries. Grep by tag. Promote when hits ≥ 2. Delete (git keeps history) when obsolete. Template: skill://memory -->
 
+## L-0015 Apply dial's theme style after every preset reload, never before
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [gpui, theme]
+- trigger: editing `Theme` fields (radius, fonts, colours) in dial-ui
+- lesson: `Theme::change` (and gpui-component's own `ThemeRegistry` observer, which fires on any `ThemeRegistry::global_mut`) re-applies the bare preset and resets colours; a style edited earlier is lost silently. Write overrides with `Theme::update` after `Theme::change`, and keep dial's second registry observer (registered after `gpui_kit::init`) that re-runs `theme::apply`.
+- evidence: gpui-component 0.7.0 `src/theme/mod.rs` `Theme::edit` / `src/theme/registry.rs:46-72`; test `style_overrides_survive_mode_switches_and_registry_reloads` (2026-09-28)
+
+## L-0014 gpui-component theme JSON silently drops unknown keys — check keys against `schema.rs`
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [gpui, theme]
+- trigger: adding or editing a preset in `crates/dial-ui/themes/`
+- lesson: `ThemeConfigColors` has no `deny_unknown_fields`, so a misspelled key parses fine and the colour falls back to the default. The upstream longbridge/gpui-kit presets use `window_border` (schema: `window.border`), `link.foreground` (schema: `link`), `panel.background` (no such key) and syntax `comment.doc` (serde expects `comment_doc`); dial's copies rename/drop those. Validate new presets against the `#[serde(rename)]` keys of gpui-component's `src/theme/schema.rs`.
+- evidence: gpui-component-0.7.0/src/theme/schema.rs; `src/highlighter/registry.rs` `SyntaxColors.comment_doc`; a key check over the 6 upstream files found 292 unknown keys (2026-09-28)
+
 ## L-0013 Static-link libghostty-vt from a directory that holds only the `.a`
 - date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
 - tags: [build, ghostty, macos, ffi]

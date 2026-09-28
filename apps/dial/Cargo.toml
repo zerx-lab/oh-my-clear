@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 dial-telemetry.workspace = true
+dial-ui.workspace = true
+gpui-kit.workspace = true
 tracing.workspace = true
 
 [lints]

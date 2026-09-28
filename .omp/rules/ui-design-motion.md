@@ -9,7 +9,7 @@ The UI is the product's first principle: quiet, dense, keyboard-first; content o
 
 ## Tokens only
 - Colors, spacing, radii, shadows, font sizes, durations and springs come from `dial_ui::tokens` / the active theme. No literal `rgb(..)`/`hsla(..)`, ad-hoc `px(..)` sizes, or `Duration::from_millis` in views (exceptions: 0 and 1 px hairlines).
-- Colors are authored in OKLCH (inputs: base hue, accent, contrast) and converted to `Hsla` once at theme load — never in `render`. Body text ≥ 4.5:1, secondary ≥ 3:1.
+- Palettes are gpui-component `ThemeSet` JSON presets in `crates/dial-ui/themes/`, read through `cx.theme()`; user overrides go through `dial_ui::theme::ThemeStyle` and `UiSettings::update` (ADR 0013). Colours dial authors itself (accent ramps) are OKLCH, converted to `Hsla` once when the theme is applied — never in `render`. Body text ≥ 4.5:1, secondary ≥ 3:1.
 - Fonts: bundled Inter (UI) + JetBrains Mono (code/terminal), registered with `text_system().add_fonts(..)?` before the first window; name families explicitly (GPUI panics on a missing family). Body 13/18; weights 400/500/600 only.
 - 4 px grid (2,4,6,8,12,16,24,32); radii 4/6/8/12 (nested = outer − padding); three elevations; Lucide icons 16 px / 1.5 stroke.
 

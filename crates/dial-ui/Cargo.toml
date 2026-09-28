@@ -10,6 +10,14 @@ publish.workspace = true
 doctest = false # cargo-nextest is the only runner (ADR 0006)
 
 [dependencies]
+gpui-kit.workspace = true
+rust-i18n.workspace = true
+sys-locale.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

@@ -24,6 +24,7 @@ Memory records development rules and their reasons — never progress, milestone
 - 0010 libghostty-vt terminal via `dial-ghostty` unsafe island (amends 0003's forbid), Zig 0.16 submodule build; PTY = alacritty `tty` only (accepted)
 - 0011 UI first: OKLCH tokens, Inter/JetBrains Mono, Apple spring presets, reduced motion, frame budgets (accepted)
 - 0012 Docs/memory record development rules only — no progress, milestones, schedules, roadmaps, session logs; TTSR `docs-no-schedule` (accepted; amends 0001)
+- 0013 UI foundation: gpui-component JSON theme presets + dial style layer (OKLCH accent), `UiSettings` global, rust-i18n en/zh-CN following the OS, TitleBar-based chrome, every command an Action (accepted; amends 0011 colour authoring)
 
 ## Hot lessons
 - L-0001 Never create .omp/AGENTS.md or CLAUDE.md — they shadow/compete with root AGENTS.md (omp)

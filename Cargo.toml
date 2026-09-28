@@ -17,6 +17,10 @@ publish = false
 # Internal crates are added here (path = "crates/dial-x") once another member uses them.
 [workspace.dependencies]
 dial-telemetry = { path = "crates/dial-telemetry" }
+dial-ui = { path = "crates/dial-ui" }
+gpui-kit = "=0.7.0"
+rust-i18n = "4.2"
+sys-locale = "0.3"
 thiserror = "2.0.21"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
@@ -97,6 +101,19 @@ debug = "full"
 
 [profile.dev.package."*"]
 debug = "line-tables-only"
+
+# gpui-kit's installation guide (ADR 0002): the renderer, text shaping and layout are
+# unusably slow unoptimised. Cargo merges these on top of the "*" entry above.
+[profile.dev.package]
+gpui-pre = { opt-level = 3 }
+gpui-component = { opt-level = 3 }
+gpui-kit = { opt-level = 3 }
+gpui-kit-assets = { opt-level = 3 }
+gpui-pre-macros = { opt-level = 3 }
+gpui-pre-platform = { opt-level = 3 }
+rustybuzz = { opt-level = 3 }
+taffy = { opt-level = 3 }
+ttf-parser = { opt-level = 3 }
 
 # Build scripts and proc-macros run on every build; optimise them.
 [profile.dev.build-override]

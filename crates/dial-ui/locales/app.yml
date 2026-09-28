@@ -1,0 +1,232 @@
+_version: 2
+app:
+  tagline:
+    en: Run coding agents side by side, each in its own worktree.
+    zh-CN: 让多个编码 Agent 并行工作，每个都在自己的 worktree 中。
+appearance:
+  system:
+    en: System
+    zh-CN: 跟随系统
+  light:
+    en: Light
+    zh-CN: 浅色
+  dark:
+    en: Dark
+    zh-CN: 深色
+  toggle:
+    en: Toggle Light/Dark
+    zh-CN: 切换浅色/深色
+language:
+  system:
+    en: System Language
+    zh-CN: 跟随系统
+title_bar:
+  appearance:
+    en: Appearance
+    zh-CN: 外观
+  language:
+    en: Language
+    zh-CN: 语言
+  settings:
+    en: Settings
+    zh-CN: 设置
+workspace:
+  shortcuts:
+    en: Shortcuts
+    zh-CN: 快捷键
+  quit:
+    en: Quit
+    zh-CN: 退出
+menu:
+  settings:
+    en: Settings…
+    zh-CN: 设置…
+  quit:
+    en: Quit dial
+    zh-CN: 退出 dial
+  view:
+    en: View
+    zh-CN: 显示
+  appearance:
+    en: Appearance
+    zh-CN: 外观
+  language:
+    en: Language
+    zh-CN: 语言
+  window:
+    en: Window
+    zh-CN: 窗口
+  minimize:
+    en: Minimize
+    zh-CN: 最小化
+  zoom:
+    en: Zoom
+    zh-CN: 缩放
+  close_window:
+    en: Close Window
+    zh-CN: 关闭窗口
+settings:
+  title:
+    en: Settings
+    zh-CN: 设置
+  page:
+    appearance:
+      en: Appearance
+      zh-CN: 外观
+    language:
+      en: Language
+      zh-CN: 语言
+  group:
+    theme:
+      en: Theme
+      zh-CN: 主题
+    shape:
+      en: Shape & Depth
+      zh-CN: 形状与层次
+    typography:
+      en: Typography
+      zh-CN: 字体
+    scrolling:
+      en: Scrolling
+      zh-CN: 滚动
+    language:
+      en: Language
+      zh-CN: 语言
+  appearance:
+    title:
+      en: Mode
+      zh-CN: 外观模式
+    description:
+      en: Light, dark, or follow the operating system.
+      zh-CN: 浅色、深色，或跟随操作系统。
+  light_theme:
+    title:
+      en: Light theme
+      zh-CN: 浅色主题
+    description:
+      en: Used whenever the interface is light.
+      zh-CN: 界面为浅色时使用。
+  dark_theme:
+    title:
+      en: Dark theme
+      zh-CN: 深色主题
+    description:
+      en: Used whenever the interface is dark.
+      zh-CN: 界面为深色时使用。
+  accent:
+    title:
+      en: Accent color
+      zh-CN: 强调色
+    description:
+      en: Replaces the theme's accent in buttons, focus rings, links and selections.
+      zh-CN: 替换主题在按钮、焦点环、链接和选区中的强调色。
+  corners:
+    title:
+      en: Corners
+      zh-CN: 圆角
+    description:
+      en: Square removes rounding everywhere.
+      zh-CN: 选择直角时，所有元素都不再有圆角。
+  shadows:
+    title:
+      en: Shadows
+      zh-CN: 阴影
+    description:
+      en: Drop shadows under controls and floating surfaces.
+      zh-CN: 控件和浮层下方的投影。
+  focus_ring:
+    title:
+      en: Focus ring
+      zh-CN: 焦点环
+    description:
+      en: Outline around the focused control. When off, only its border is tinted.
+      zh-CN: 聚焦控件外侧的描边。关闭后只保留边框着色。
+  dividers:
+    title:
+      en: Dividers
+      zh-CN: 分隔线
+    description:
+      en: Hairlines between the titlebar and window regions.
+      zh-CN: 标题栏与窗口各区域之间的细线。
+  ui_font:
+    title:
+      en: Interface font
+      zh-CN: 界面字体
+  ui_font_size:
+    title:
+      en: Interface font size
+      zh-CN: 界面字号
+    description:
+      en: Scales all interface text and controls.
+      zh-CN: 同时缩放界面文字与控件。
+  mono_font:
+    title:
+      en: Code font
+      zh-CN: 代码字体
+  mono_font_size:
+    title:
+      en: Code font size
+      zh-CN: 代码字号
+  scrollbar:
+    title:
+      en: Scrollbars
+      zh-CN: 滚动条
+  language:
+    title:
+      en: Interface language
+      zh-CN: 界面语言
+    description:
+      en: System uses the operating system's preferred language.
+      zh-CN: 跟随系统时使用操作系统的首选语言。
+accent:
+  theme:
+    en: Theme default
+    zh-CN: 主题默认
+  blue:
+    en: Blue
+    zh-CN: 蓝
+  violet:
+    en: Violet
+    zh-CN: 紫
+  green:
+    en: Green
+    zh-CN: 绿
+  orange:
+    en: Orange
+    zh-CN: 橙
+  pink:
+    en: Pink
+    zh-CN: 粉
+corners:
+  square:
+    en: Square
+    zh-CN: 直角
+  compact:
+    en: Small
+    zh-CN: 小
+  standard:
+    en: Medium
+    zh-CN: 中
+  round:
+    en: Large
+    zh-CN: 大
+font:
+  system_ui:
+    en: System font
+    zh-CN: 系统字体
+  system_mono:
+    en: System monospace
+    zh-CN: 系统等宽字体
+scrollbar:
+  system:
+    en: Follow system
+    zh-CN: 跟随系统
+  scrolling:
+    en: While scrolling
+    zh-CN: 滚动时显示
+  hover:
+    en: On hover
+    zh-CN: 悬停时显示
+  always:
+    en: Always
+    zh-CN: 始终显示
