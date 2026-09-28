@@ -1,10 +1,11 @@
-//! Wire types shared by daemon and UI: control frames, requests, responses and errors.
+//! Wire types shared by daemon and UI: control frames, requests, responses, events and errors.
 //!
 //! Pure data + serde, no I/O. IPC framing lives in omc-ipc. Allowed internal deps: `LAYERS` in xtask/src/layers.rs. Architecture: docs/memory/decisions/0008-process-split-daemon-ipc.md
 //!
 //! Every control frame is one JSON value: the client sends [`ClientFrame`], the daemon
-//! answers with [`ServerFrame`]. Unknown fields are ignored and additive fields carry
-//! `#[serde(default)]`, so [`PROTOCOL`] only changes on a non-additive change.
+//! answers with [`ServerFrame`] and may push [`Event`]s to UI clients. Unknown fields are
+//! ignored and additive fields carry `#[serde(default)]`, so [`PROTOCOL`] only changes on a
+//! non-additive change.
 
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +36,23 @@ pub enum ServerFrame {
         /// Success payload or error.
         res: Result<Response, RpcError>,
     },
+    /// Unsolicited daemon → UI notification. Only `ui` clients receive events, and a UI
+    /// replaces any daemon of another build before it could see one it does not know.
+    Event {
+        /// The event.
+        ev: Event,
+    },
+}
+
+/// What the daemon asks attached UIs to do (driven by the system tray, ADR 0020).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "e", rename_all = "snake_case")]
+pub enum Event {
+    /// Bring the main window to the front, reopening it if only other windows are left.
+    Activate,
+    /// The user quit oh-my-clear: the UI exits and must not respawn the daemon, which stops
+    /// once every UI has detached.
+    Quit,
 }
 
 /// Requests. `hello`, `ping` and `shutdown` are the frozen meta subset: their shape never

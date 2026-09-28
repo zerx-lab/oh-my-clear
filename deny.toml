@@ -23,6 +23,7 @@ unsound = "all"
 unused-ignored-advisory = "deny"
 ignore = [
     # { id = "RUSTSEC-YYYY-NNNN", reason = "<why unaffected> — <tracking link>" },
+    { id = "RUSTSEC-2024-0429", reason = "glib 0.18 is only reachable through tao's Linux deps; oh-my-clear-daemon depends on tao for macOS/Windows only and cargo-deny unions targets, so glib is never built — ADR 0020" },
 ]
 
 [licenses]
@@ -85,6 +86,15 @@ deny = [
     { crate = "daemonize", reason = "unmaintained (RUSTSEC-2025-0069); detach via std CommandExt (ADR 0008)" },
     # ADR 0011: OKLCH conversion is ~25 lines in omc-ui.
     { crate = "palette", reason = "color math lives in omc-ui tokens (ADR 0011)" },
+    # ADR 0020: the tray lives in the daemon; tray-icon + tao (macOS/Windows event loop),
+    # tray-icon's pure-Rust ksni backend on Linux.
+    { crate = "winit", reason = "the tray's event loop is tao (ADR 0020)" },
+    { crate = "tray-item", reason = "system tray is tray-icon (ADR 0020)" },
+    { crate = "systray", reason = "system tray is tray-icon (ADR 0020)" },
+    { crate = "trayicon", reason = "system tray is tray-icon (ADR 0020)" },
+    { crate = "ksni", wrappers = ["tray-icon"], reason = "only as tray-icon's Linux backend (ADR 0020)" },
+    { crate = "libappindicator", reason = "panics when libappindicator3 is not installed; Linux tray is tray-icon's ksni backend (ADR 0020)" },
+    { crate = "gtk", wrappers = ["tao"], reason = "no GTK on Linux: tao is macOS/Windows-only and the tray uses ksni (ADR 0020)" },
 ]
 skip = []
 skip-tree = []

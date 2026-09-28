@@ -12,13 +12,18 @@
 #   the tile cropped to 904/1024, since taskbars and launchers add no margin of their own;
 # - crates/omc-ui/assets/brand/window-icon.png: the 128 px Linux icon for X11 `_NET_WM_ICON`;
 # - crates/omc-ui/assets/brand/mark.png: mark.svg at 64 px for the 32 px overview mark
-#   (GPUI rasterises an SVG `img` at its intrinsic 1024 px).
+#   (GPUI rasterises an SVG `img` at its intrinsic 1024 px);
+# - apps/oh-my-clear-daemon/assets/tray-template.png: mark-mono.svg as the macOS menu bar
+#   template image, 36 px (18 pt @2x) with the glyph inset to 16 pt like system extras;
+# - apps/oh-my-clear-daemon/assets/tray.png: the 64 px app icon for Linux tray hosts.
+#   (The Windows tray loads the .ico embedded in the daemon executable.)
 set -eu
 
 brand=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$brand/../.." && pwd)
 res="$root/apps/oh-my-clear/resources"
 ui="$root/crates/omc-ui/assets/brand"
+tray="$root/apps/oh-my-clear-daemon/assets"
 app_id=dev.zerx.oh-my-clear
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -74,3 +79,13 @@ PY
 mkdir -p "$ui"
 cp "$res/linux/share/icons/hicolor/128x128/apps/$app_id.png" "$ui/window-icon.png"
 resvg -w 64 -h 64 "$brand/mark.svg" "$ui/mark.png"
+
+# Tray
+mkdir -p "$tray"
+sed 's/viewBox="140.88 104.09 731.98 731.98"/viewBox="95.13 58.34 823.48 823.48"/' "$brand/mark-mono.svg" >"$tmp/tray.svg"
+grep -q 'viewBox="95.13 58.34 823.48 823.48"' "$tmp/tray.svg" || {
+    echo "render.sh: mark-mono.svg changed its viewBox; update the tray inset" >&2
+    exit 1
+}
+resvg -w 36 -h 36 "$tmp/tray.svg" "$tray/tray-template.png"
+cp "$res/linux/share/icons/hicolor/64x64/apps/$app_id.png" "$tray/tray.png"

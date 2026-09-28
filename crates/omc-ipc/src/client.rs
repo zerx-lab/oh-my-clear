@@ -3,8 +3,9 @@
 //! [`EngineHandle`] is the UI's handle. A supervisor task on the caller's tokio runtime
 //! owns the connection: it connects via `endpoint.json`, spawns `<daemon_exe> run` when
 //! nothing answers, restarts a daemon built from another executable, pings every 5 s,
-//! and reconnects with a 50 ms → 2 s backoff. Requests and state changes cross into the UI
-//! through tokio channels, whose futures run on any executor.
+//! and reconnects with a 50 ms → 2 s backoff. Requests, state changes and daemon events
+//! cross into the UI through tokio channels, whose futures run on any executor. A
+//! [`Event::Quit`] ends the supervisor: the user quit the app, so nothing reconnects.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -12,14 +13,14 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use omc_proto::{
-    ClientFrame, ClientKind, Hello, PROTOCOL, Request, Response, ServerFrame, Welcome,
+    ClientFrame, ClientKind, Event, Hello, PROTOCOL, Request, Response, ServerFrame, Welcome,
 };
 use tokio::io::{AsyncBufReadExt as _, BufReader, ReadHalf, WriteHalf};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::Instant;
 
 use crate::runtime::{Endpoint, READY_PREFIX};
-use crate::{BoxedStream, Error, Result, RuntimeDir, build_id, frame};
+use crate::{BoxedStream, Error, Result, RuntimeDir, build_id, frame, spawn_detached};
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -71,6 +72,8 @@ pub enum ConnState {
 pub enum ClientEvent {
     /// The connection state changed.
     State(ConnState),
+    /// The daemon pushed an event. [`Event::Quit`] is the last thing the supervisor sends.
+    Daemon(Event),
 }
 
 struct Outgoing {
@@ -159,8 +162,12 @@ async fn supervise(
                 })
                 .await;
                 tracing::info!(epoch = %session.welcome.epoch, "attached to daemon");
-                match serve(session, &mut requests).await {
+                match serve(session, &mut requests, &events).await {
                     ServeEnd::HandlesDropped => return,
+                    ServeEnd::Quit => {
+                        tracing::info!("oh-my-clear was quit from the daemon; not reconnecting");
+                        return;
+                    }
                     ServeEnd::Lost(reason) => {
                         tracing::warn!("daemon connection lost: {reason}");
                         publish(ConnState::Reconnecting { attempt, reason }).await;
@@ -254,7 +261,15 @@ async fn spawn_daemon(exe: &Path, dir: &RuntimeDir) -> Result<()> {
         .create(true)
         .append(true)
         .open(dir.log_file())?;
-    let mut child = spawn_detached(exe, dir, &log)?;
+    let mut child = spawn_detached(|| {
+        let mut cmd = tokio::process::Command::new(exe);
+        cmd.arg("run")
+            .current_dir(dir.path())
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::from(log.try_clone()?));
+        Ok(cmd)
+    })?;
     let Some(stdout) = child.stdout.take() else {
         return Err(Error::DaemonDidNotStart(dir.log_file()));
     };
@@ -274,56 +289,19 @@ async fn spawn_daemon(exe: &Path, dir: &RuntimeDir) -> Result<()> {
     Ok(())
 }
 
-fn spawn_detached(
-    exe: &Path,
-    dir: &RuntimeDir,
-    log: &std::fs::File,
-) -> Result<tokio::process::Child> {
-    let command = |log: &std::fs::File| -> Result<tokio::process::Command> {
-        let mut cmd = tokio::process::Command::new(exe);
-        cmd.arg("run")
-            .current_dir(dir.path())
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::from(log.try_clone()?))
-            .kill_on_drop(false);
-        #[cfg(unix)]
-        cmd.process_group(0);
-        Ok(cmd)
-    };
-    #[cfg(windows)]
-    {
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-        const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
-        let base = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
-        let mut cmd = command(log)?;
-        cmd.creation_flags(base | CREATE_BREAKAWAY_FROM_JOB);
-        match cmd.spawn() {
-            Ok(child) => return Ok(child),
-            // The job we run in may forbid breakaway.
-            Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => {
-                tracing::debug!("breakaway from job denied; spawning inside it");
-            }
-            Err(err) => return Err(err.into()),
-        }
-        let mut cmd = command(log)?;
-        cmd.creation_flags(base);
-        Ok(cmd.spawn()?)
-    }
-    #[cfg(not(windows))]
-    {
-        Ok(command(log)?.spawn()?)
-    }
-}
-
 enum ServeEnd {
     HandlesDropped,
+    /// The daemon sent [`Event::Quit`].
+    Quit,
     Lost(String),
 }
 
-/// Runs one attached connection: forwards requests, routes answers, pings.
-async fn serve(session: Session, requests: &mut mpsc::Receiver<Outgoing>) -> ServeEnd {
+/// Runs one attached connection: forwards requests, routes answers and events, pings.
+async fn serve(
+    session: Session,
+    requests: &mut mpsc::Receiver<Outgoing>,
+    events: &mpsc::Sender<ClientEvent>,
+) -> ServeEnd {
     let Session {
         reader,
         mut writer,
@@ -357,6 +335,16 @@ async fn serve(session: Session, requests: &mut mpsc::Receiver<Outgoing>) -> Ser
                         reply(to, res.map_err(Error::Rpc));
                     } else {
                         tracing::trace!(id, "answer without a waiting requester (ping)");
+                    }
+                }
+                Some(Ok(Some(ServerFrame::Event { ev }))) => {
+                    last_seen = Instant::now();
+                    tracing::debug!(?ev, "daemon event");
+                    if events.send(ClientEvent::Daemon(ev)).await.is_err() {
+                        tracing::debug!("UI stopped listening for daemon events");
+                    }
+                    if ev == Event::Quit {
+                        break ServeEnd::Quit;
                     }
                 }
                 Some(Ok(None)) | None => break ServeEnd::Lost("daemon closed the connection".to_owned()),
@@ -559,5 +547,54 @@ mod tests {
         assert_eq!(backoff(1), Duration::from_millis(100), "doubles");
         assert_eq!(backoff(6), BACKOFF_MAX, "capped");
         assert_eq!(backoff(u32::MAX), BACKOFF_MAX, "no overflow");
+    }
+
+    #[tokio::test]
+    async fn quit_event_reaches_the_ui_and_ends_the_connection_for_good() {
+        let (ours, theirs) = tokio::io::duplex(1 << 12);
+        let (reader, writer) = tokio::io::split(Box::new(ours) as BoxedStream);
+        let session = Session {
+            reader,
+            writer,
+            welcome: Welcome {
+                protocol: PROTOCOL,
+                build: "test".to_owned(),
+                epoch: "epoch".to_owned(),
+                pid: 1,
+            },
+            next_id: 1,
+        };
+        let (mut daemon_reader, mut daemon_writer) = tokio::io::split(theirs);
+        let (_requests_tx, mut requests) = mpsc::channel(1);
+        let (events_tx, mut events) = mpsc::channel(4);
+
+        let daemon = async {
+            for ev in [Event::Activate, Event::Quit] {
+                frame::write(&mut daemon_writer, &ServerFrame::Event { ev }).await?;
+            }
+            // Stay connected: the client must stop on the event, not on a closed socket.
+            frame::read::<_, ClientFrame>(&mut daemon_reader).await
+        };
+        let client = tokio::time::timeout(
+            Duration::from_secs(5),
+            serve(session, &mut requests, &events_tx),
+        );
+        let (end, _) = tokio::join!(client, daemon);
+
+        assert!(
+            matches!(end, Ok(ServeEnd::Quit)),
+            "the connection ends with Quit, so the supervisor does not reconnect"
+        );
+        let forwarded: Vec<_> = std::iter::from_fn(|| events.try_recv().ok()).collect();
+        assert!(
+            matches!(
+                forwarded.as_slice(),
+                [
+                    ClientEvent::Daemon(Event::Activate),
+                    ClientEvent::Daemon(Event::Quit)
+                ]
+            ),
+            "both events reach the UI in order: {forwarded:?}"
+        );
     }
 }

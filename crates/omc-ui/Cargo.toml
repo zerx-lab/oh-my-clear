@@ -11,6 +11,7 @@ doctest = false # cargo-nextest is the only runner (ADR 0006)
 
 [dependencies]
 omc-ipc.workspace = true
+omc-proto.workspace = true
 gpui-kit.workspace = true
 rust-i18n.workspace = true
 sys-locale.workspace = true

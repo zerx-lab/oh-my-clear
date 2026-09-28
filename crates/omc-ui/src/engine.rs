@@ -1,12 +1,14 @@
 //! Bridge to `oh-my-clear-daemon` (ADR 0008): a tokio runtime (only for the omc-ipc client)
 //! and the [`EngineHandle`], held by one [`Engine`] entity in a GPUI global. A single
 //! foreground task drains the client's event channel and re-emits every [`ClientEvent`]
-//! from the entity; views subscribe instead of owning channels.
+//! from the entity; views subscribe instead of owning channels. Daemon events from the tray
+//! (ADR 0020) act on the app itself: `activate` brings the main window forward, `quit` quits.
 
 use std::path::PathBuf;
 
 use gpui_kit::{App, AppContext as _, Context, Entity, EventEmitter, Global, Task};
 use omc_ipc::client::{ClientConfig, ClientEvent, ConnState, EngineHandle};
+use omc_proto::Event;
 
 /// The daemon connection as seen by views.
 pub struct Engine {
@@ -72,9 +74,19 @@ impl Engine {
                 }
                 let applied = this.update(cx, |engine, cx| {
                     for event in batch {
-                        let ClientEvent::State(state) = &event;
-                        tracing::debug!(?state, "daemon connection");
-                        engine.state = state.clone();
+                        match &event {
+                            ClientEvent::State(state) => {
+                                tracing::debug!(?state, "daemon connection");
+                                engine.state = state.clone();
+                            }
+                            ClientEvent::Daemon(Event::Activate) => {
+                                cx.defer(crate::window::activate_main_window);
+                            }
+                            ClientEvent::Daemon(Event::Quit) => {
+                                tracing::info!("quit from the tray");
+                                cx.defer(|cx| cx.quit());
+                            }
+                        }
                         cx.emit(event);
                     }
                 });

@@ -79,6 +79,11 @@ impl RuntimeDir {
         self.path.join("daemon.log")
     }
 
+    /// Where the stderr (log) of a UI launched by the daemon goes; truncated per launch.
+    pub fn ui_log_file(&self) -> PathBuf {
+        self.path.join("ui.log")
+    }
+
     pub(crate) fn endpoint_file(&self) -> PathBuf {
         self.path.join("endpoint.json")
     }

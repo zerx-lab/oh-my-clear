@@ -1,6 +1,6 @@
 [package]
 name = "oh-my-clear-daemon"
-description = "oh-my-clear execution layer: headless background daemon that outlives the UI; no gpui"
+description = "oh-my-clear execution layer: background daemon that outlives the UI and owns the system tray; no gpui"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,9 +11,24 @@ omc-engine.workspace = true
 omc-ipc.workspace = true
 omc-proto.workspace = true
 omc-telemetry.workspace = true
+rust-i18n.workspace = true
+sys-locale.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tracing.workspace = true
+tray-icon.workspace = true
+
+# The tray needs a main-thread event loop here; Linux's D-Bus tray runs on its own thread.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tao.workspace = true
+
+# Tray icon PNGs (Windows loads the icon resource embedded by build.rs instead).
+[target.'cfg(not(windows))'.dependencies]
+image.workspace = true
+
+[build-dependencies]
+# Windows: embeds the application icon (build.rs), also the tray icon.
+embed-resource.workspace = true
 
 [lints]
 workspace = true

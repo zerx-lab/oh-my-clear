@@ -1,0 +1,8 @@
+_version: 2
+tray:
+  open:
+    en: Open oh-my-clear
+    zh-CN: 打开 oh-my-clear
+  quit:
+    en: Quit oh-my-clear
+    zh-CN: 退出 oh-my-clear

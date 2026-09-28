@@ -29,11 +29,16 @@ rust-i18n = "4.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sys-locale = "0.3"
+# Main-thread event loop that hosts the tray on macOS and Windows (daemon only, ADR 0020).
+tao = { version = "0.37.1", default-features = false }
 thiserror = "2.0.21"
 # Members enable only the features they use.
 tokio = "1.53.1"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+# System tray (daemon only, ADR 0020). Linux uses the pure-Rust StatusNotifierItem (D-Bus)
+# backend: no GTK, no libappindicator, no event loop.
+tray-icon = { version = "0.25.1", default-features = false, features = ["ksni"] }
 uuid = { version = "1.26.1", features = ["v4"] }
 
 [workspace.lints.rust]

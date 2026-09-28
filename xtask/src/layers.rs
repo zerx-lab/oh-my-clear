@@ -34,8 +34,13 @@ const LAYERS: &[(&str, &[&str])] = &[
     ("xtask", &[]),
 ];
 
-/// External crates that only the listed members may depend on directly.
-const CONFINED: &[(&str, &[&str])] = &[("gpui-kit", &["omc-ui", "oh-my-clear"])];
+/// External crates that only the listed members may depend on directly: the GUI toolkit
+/// stays out of the daemon (ADR 0008), the tray stays out of the UI (ADR 0020).
+const CONFINED: &[(&str, &[&str])] = &[
+    ("gpui-kit", &["omc-ui", "oh-my-clear"]),
+    ("tray-icon", &["oh-my-clear-daemon"]),
+    ("tao", &["oh-my-clear-daemon"]),
+];
 
 pub(crate) fn check(root: &Path) -> Result<()> {
     let mut manifests = Vec::new();

@@ -1,6 +1,13 @@
 # Lessons learned
 <!-- Newest first. ≤40 active entries. Grep by tag. Promote when hits ≥ 2. Delete (git keeps history) when obsolete. Template: skill://memory -->
 
+## L-0024 cargo-deny unions targets: a platform-gated dependency drags in its other platforms' deps
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [deps, deny]
+- trigger: adding a dependency under `[target.'cfg(…)'.dependencies]` whose own deps are gated to another OS (tao on macOS/Windows → gtk/glib on Linux)
+- lesson: `cargo deny` builds one graph for all `[graph] targets`, so those never-built crates still hit advisories/bans (RUSTSEC-2024-0429 glib 0.18 failed `unsound = "all"`). Confirm with `cargo tree --target <t> -p <member> -i <crate>` that nothing builds it, then add a reasoned `ignore` (kept honest by `unused-ignored-advisory = "deny"`) and a `wrappers` ban.
+- evidence: `cargo deny --all-features check advisories` path `glib ← gtk ← tao ← oh-my-clear-daemon`, while `cargo tree --target x86_64-unknown-linux-gnu -p oh-my-clear-daemon -i gtk` prints nothing (2026-09-28)
+
 ## L-0023 App-level action handlers must `cx.defer` before updating the dispatching window
 - date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
 - tags: [gpui, actions]

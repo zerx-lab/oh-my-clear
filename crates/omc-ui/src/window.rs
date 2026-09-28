@@ -43,17 +43,42 @@ pub fn window_options(size: Size<Pixels>, min_size: Size<Pixels>, cx: &App) -> W
     }
 }
 
+/// The open main window, so the daemon's `activate` event (the tray's Open, ADR 0020) can
+/// bring it forward.
+struct MainWindow(AnyWindowHandle);
+
+impl Global for MainWindow {}
+
 /// Opens the main window.
 pub fn open_main_window(cx: &mut App) -> Result<AnyWindowHandle> {
     let options = window_options(chrome::MAIN_WINDOW, chrome::MAIN_WINDOW_MIN, cx);
-    gpui_kit::open_window(options, cx, |window, cx| {
+    let handle = gpui_kit::open_window(options, cx, |window, cx| {
         cx.new(|cx| MainView::new(window, cx))
     })
     .map(|(handle, _)| handle)
     .map_err(|err| Error::Window {
         window: "main",
         message: format!("{err:#}"),
-    })
+    })?;
+    cx.set_global(MainWindow(handle));
+    Ok(handle)
+}
+
+/// Brings the app and its main window to the front, reopening the window when only others
+/// (settings) are left. Call outside any window update (e.g. from `cx.defer`).
+pub fn activate_main_window(cx: &mut App) {
+    cx.activate(true);
+    let existing = cx.try_global::<MainWindow>().map(|w| w.0);
+    if let Some(handle) = existing
+        && handle
+            .update(cx, |_, window, _| window.activate_window())
+            .is_ok()
+    {
+        return;
+    }
+    if let Err(err) = open_main_window(cx) {
+        tracing::error!("cannot reopen the main window: {err}");
+    }
 }
 
 /// The open settings window, so a second request focuses it instead of opening another.

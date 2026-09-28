@@ -1,0 +1,4 @@
+// Icon resource 1: the tray loads it with `LoadImageW(.., 1, IMAGE_ICON, <small icon size>)`
+// (tray-icon `Icon::from_resource`); Explorer and Task Manager show it for the .exe.
+// `oh-my-clear.ico` is the GUI's (apps/oh-my-clear/resources/windows, an include dir).
+1 ICON "oh-my-clear.ico"

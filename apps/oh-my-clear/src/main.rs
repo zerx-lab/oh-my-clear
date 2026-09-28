@@ -1,6 +1,6 @@
 //! oh-my-clear GUI process: gpui-kit viewport over the background `oh-my-clear-daemon` (ADR 0008).
-//! Starts the omc-ipc client (spawning the sibling `oh-my-clear-daemon` executable when no
-//! daemon answers) before opening the main window.
+//! Starts the omc-ipc client (spawning the daemon that belongs to this executable,
+//! [`omc_ipc::layout`], when no daemon answers) before opening the main window.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -42,8 +42,8 @@ fn start(daemon: std::io::Result<PathBuf>, cx: &mut App) -> omc_ui::Result<()> {
             omc_ui::engine::unavailable(err.to_string(), cx);
         }
     }
-    // The UI is a viewport: closing its last window ends the process; the daemon keeps
-    // running and a new UI reattaches.
+    // The UI is a viewport: closing its last window ends the process and frees its memory;
+    // the daemon keeps running, and its tray brings a new UI back (ADR 0020).
     cx.on_window_closed(|cx, _| {
         if cx.windows().is_empty() {
             cx.quit();
@@ -55,19 +55,15 @@ fn start(daemon: std::io::Result<PathBuf>, cx: &mut App) -> omc_ui::Result<()> {
     Ok(())
 }
 
-/// `oh-my-clear-daemon` next to this executable.
+/// The `oh-my-clear-daemon` that belongs to this executable.
 fn daemon_exe() -> std::io::Result<PathBuf> {
     let exe = std::env::current_exe()?;
-    let dir = exe.parent().ok_or_else(|| {
+    omc_ipc::layout::daemon_exe(&exe).ok_or_else(|| {
         std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!("{} has no parent directory", exe.display()),
         )
-    })?;
-    Ok(dir.join(format!(
-        "oh-my-clear-daemon{}",
-        std::env::consts::EXE_SUFFIX
-    )))
+    })
 }
 
 /// `cargo run` builds only this package, so the daemon next to the GUI is missing or stale.

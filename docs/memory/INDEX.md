@@ -18,13 +18,14 @@ Memory records development rules and their reasons — never progress, milestone
 - 0004 One crate per category; dependency gate = deny.toml + skill://dep-review; tokio, thiserror-only (accepted)
 - 0006 cargo-nextest is the only test runner; doctests disabled (accepted)
 - 0007 Virtual workspace (apps/*, crates/*, xtask), `cargo ci`, dev/profiling profiles, tracing+panic hook, Zed nextest/CodeLLDB wiring (accepted)
-- 0008 Two processes (`oh-my-clear` GUI + headless `oh-my-clear-daemon`), tokio UDS/named-pipe IPC with token auth, JSON control frames, epoch resync; crate layering in xtask (accepted)
+- 0008 Two processes (`oh-my-clear` GUI + headless `oh-my-clear-daemon`), tokio UDS/named-pipe IPC with token auth, JSON control frames, epoch resync; crate layering in xtask (accepted; lifecycle amended by 0020)
 - 0011 UI first: OKLCH tokens, Inter/JetBrains Mono, Apple spring presets, reduced motion, frame budgets (accepted)
 - 0012 Docs/memory record development rules only — no progress, milestones, schedules, roadmaps, session logs; TTSR `docs-no-schedule` (accepted; amends 0001)
 - 0013 UI foundation: gpui-component JSON theme presets + app style layer (OKLCH accent), `UiSettings` global, rust-i18n en/zh-CN following the OS, TitleBar-based chrome, every command an Action (accepted; amends 0011 colour authoring; chrome amended by 0019)
 - 0018 App icons from `assets/brand/` (render.sh): macOS `.app` via `cargo omc` (no `unsafe` Dock API), Windows icon resource 1 via embed-resource, Linux X11 `WindowOptions::icon` + desktop entry for Wayland (accepted)
 - 0017 Product = oh-my-clear, a cross-platform (macOS/Windows/Linux) system cleaner; agent-orchestration scope, crates and ADRs removed; `omc-*` crates, no `unsafe` crate (accepted)
 - 0019 Main window: bare transparent titlebar (window chrome only) over a full-height sidebar of cleaning areas (`nav::NAV`), spring-collapsed off-canvas, settings in its footer (accepted; amends 0013 chrome)
+- 0020 System tray in the daemon: tray-icon (+ tao event loop on macOS/Windows, pure-Rust ksni on Linux), `CONFINED` to the daemon; UI exits with its last window, tray Open/Quit via pushed `Event`s; macOS daemon = helper bundle (accepted; amends 0008 lifecycle)
 
 ## Hot lessons
 - L-0001 Never create .omp/AGENTS.md or CLAUDE.md — they shadow/compete with root AGENTS.md (omp)
