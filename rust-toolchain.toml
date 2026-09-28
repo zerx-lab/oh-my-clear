@@ -1,0 +1,7 @@
+# Exact pin: clippy lint names/behaviour change between releases. Bump deliberately
+# together with workspace.package.rust-version and a lint re-check.
+# rust-src: rust-analyzer std navigation + stepping into std in the debugger.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy", "rust-src"]
+profile = "minimal"

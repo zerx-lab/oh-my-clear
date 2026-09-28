@@ -1,0 +1,88 @@
+// Zed tasks (ADR 0007). Tasks tagged rust-test / rust-mod-test replace Zed's built-in
+// gutter runnables, which would otherwise run `cargo test` (ADR 0006: nextest only).
+[
+  {
+    "label": "nextest: $ZED_CUSTOM_RUST_TEST_NAME",
+    "command": "cargo",
+    "args": [
+      "nextest",
+      "run",
+      "--package",
+      "$ZED_CUSTOM_RUST_PACKAGE",
+      "--all-features",
+      "--no-capture",
+      "$ZED_CUSTOM_RUST_TEST_NAME"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "tags": ["rust-test"]
+  },
+  {
+    "label": "nextest: module $ZED_CUSTOM_RUST_TEST_FRAGMENT",
+    "command": "cargo",
+    "args": [
+      "nextest",
+      "run",
+      "--package",
+      "$ZED_CUSTOM_RUST_PACKAGE",
+      "--all-features",
+      "$ZED_CUSTOM_RUST_TEST_FRAGMENT"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "tags": ["rust-mod-test"]
+  },
+  {
+    "label": "nextest: package $ZED_CUSTOM_RUST_PACKAGE",
+    "command": "cargo",
+    "args": ["nextest", "run", "--package", "$ZED_CUSTOM_RUST_PACKAGE", "--all-features"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "nextest: workspace",
+    "command": "cargo",
+    "args": ["t"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "gates: all (cargo ci)",
+    "command": "cargo",
+    "args": ["ci"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "gates: clippy",
+    "command": "cargo",
+    "args": ["lint"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "gates: deny",
+    "command": "cargo",
+    "args": ["deny", "--all-features", "check"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "run: dial",
+    "command": "cargo",
+    "args": ["dial"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "run: dial-daemon (foreground)",
+    "command": "cargo",
+    "args": ["daemon"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "gates: layers",
+    "command": "cargo",
+    "args": ["xtask", "layers"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "run: dial (RUST_LOG=trace)",
+    "command": "cargo",
+    "args": ["dial"],
+    "env": { "RUST_LOG": "trace" },
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]

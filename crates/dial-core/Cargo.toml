@@ -1,0 +1,15 @@
+[package]
+name = "dial-core"
+description = "Domain state machines and pure reducers (Workspace, Worktree, Session, Run, Task, Dispatch, Message, Gate) plus the OrchestratorPort trait."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false # cargo-nextest is the only runner (ADR 0006)
+
+[dependencies]
+
+[lints]
+workspace = true

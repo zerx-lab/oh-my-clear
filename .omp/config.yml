@@ -1,0 +1,14 @@
+# Project omp settings. Loaded only from <cwd>/.omp/ — launch omp from the repo root.
+# Arrays replace lower layers; objects deep-merge.
+ttsr:
+  enabled: true
+  interruptMode: always
+  contextMode: discard
+  # Default `once` fires each rule once per session; hard constraints must re-fire.
+  repeatMode: after-gap
+  repeatGap: 2
+  builtinRules: true
+
+skills:
+  enabled: true
+  enablePiProject: true

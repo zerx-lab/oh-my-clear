@@ -1,0 +1,28 @@
+# cargo-nextest is the only test runner (never `cargo test`; doctests are disabled by policy).
+# Zero tests: no config key exists — pass `--no-tests=warn` (or NEXTEST_NO_TESTS=warn) until tests exist.
+nextest-version = { required = "0.9.131", recommended = "0.9.146" }
+
+[profile.default]
+retries = 0
+fail-fast = true
+slow-timeout = { period = "30s", terminate-after = 4, grace-period = "5s" }
+leak-timeout = "200ms"
+status-level = "pass"
+final-status-level = "flaky"
+failure-output = "immediate-final"
+success-output = "never"
+
+[profile.ci]
+retries = { backoff = "exponential", count = 2, delay = "1s", max-delay = "5s", jitter = true }
+flaky-result = "fail"
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 3, grace-period = "10s" }
+global-timeout = "30m"
+status-level = "fail"
+final-status-level = "flaky"
+failure-output = "immediate-final"
+
+[profile.ci.junit]
+path = "junit.xml" # => target/nextest/ci/junit.xml
+store-success-output = false
+store-failure-output = true

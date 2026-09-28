@@ -1,0 +1,40 @@
+// Zed debugger scenarios (CodeLLDB), ADR 0007. Zed infers the binary from the cargo
+// build command. The test scenario compiles with `cargo test --no-run` (build only,
+// nothing executes) because Zed's locator cannot read nextest; the terminal
+// equivalent is `cargo nextest run -p <pkg> --debugger "rust-lldb --" <test>`.
+[
+  {
+    "label": "Debug dial",
+    "adapter": "CodeLLDB",
+    "build": { "command": "cargo", "args": ["build", "--package", "dial"] },
+    "sourceLanguages": ["rust"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": { "RUST_LOG": "debug", "RUST_BACKTRACE": "1" }
+  },
+  {
+    "label": "Debug dial-daemon (foreground)",
+    "adapter": "CodeLLDB",
+    "build": { "command": "cargo", "args": ["build", "--package", "dial-daemon"] },
+    "sourceLanguages": ["rust"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": { "RUST_LOG": "debug", "RUST_BACKTRACE": "1" }
+  },
+  {
+    "label": "Debug xtask ci",
+    "adapter": "CodeLLDB",
+    "build": { "command": "cargo", "args": ["build", "--package", "xtask"] },
+    "sourceLanguages": ["rust"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "args": ["ci"]
+  },
+  {
+    "label": "Debug tests: $ZED_CUSTOM_RUST_PACKAGE",
+    "adapter": "CodeLLDB",
+    "build": {
+      "command": "cargo",
+      "args": ["test", "--no-run", "--package", "$ZED_CUSTOM_RUST_PACKAGE", "--all-features"]
+    },
+    "sourceLanguages": ["rust"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]

@@ -1,0 +1,15 @@
+[package]
+name = "dial-term"
+description = "dial terminal model over libghostty-vt: byte seq, attach snapshots, OSC 7/133/title events, screen reads for agents."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false # cargo-nextest is the only runner (ADR 0006)
+
+[dependencies]
+
+[lints]
+workspace = true

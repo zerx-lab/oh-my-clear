@@ -1,0 +1,15 @@
+[package]
+name = "dial-native"
+description = "dial's own coding agent: turn loop, tools, edit engine, permissions, context compaction, checkpoints; an AgentAdapter like ACP."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false # cargo-nextest is the only runner (ADR 0006)
+
+[dependencies]
+
+[lints]
+workspace = true

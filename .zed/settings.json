@@ -1,0 +1,15 @@
+// Project settings for Zed (ADR 0007).
+{
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        // Same lint set as the clippy gate, inline in the editor.
+        "check": { "command": "clippy" },
+        "cargo": { "features": "all" },
+        // Own target dir (target/rust-analyzer): no lock contention or cache
+        // thrash with `cargo run` / `cargo nextest` in the terminal.
+        "rust": { "analyzerTargetDir": true }
+      }
+    }
+  }
+}

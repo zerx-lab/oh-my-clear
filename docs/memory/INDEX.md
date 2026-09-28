@@ -1,0 +1,36 @@
+# Memory index
+<!-- CORE memory, auto-loaded via AGENTS.md. Budget ≤80 lines / ≤6 KB. One line per entry; detail lives in linked files. Procedure: skill://memory -->
+Last consolidated: 2026-09-28 · Sessions since consolidation: 3
+
+Memory is heuristic context, not ground truth: verify against the repo before acting; if the repo or the user contradicts it, they win — fix or delete the stale entry.
+
+## Current focus
+- Architecture v2 (ADRs 0008–0011): UI process + dial-daemon over IPC, native agent + ACP, libghostty-vt terminal (dial-ghostty unsafe island, Zig 0.16), Apple-style spring UI. Layering checked by `cargo xtask layers`. Next: M1 window, M1.5 daemon/IPC.
+
+## Files (docs/memory/, read on demand)
+- active-context.md — current work, open questions, next steps
+- progress.md — milestones, known issues, last 10 session-log entries
+- lessons.md — non-obvious bugs, gotchas, errata (grep by tag)
+- deps.md — dependency ledger: one crate per category + review evidence
+- glossary.md — domain vocabulary (Run/Task/Dispatch/Session/Worktree/…)
+- decisions/ — ADRs; research snapshots in docs/research/
+
+## Decisions
+- 0001 Record decisions as ADRs; file-based self-iterating memory in docs/memory (accepted)
+- 0002 GUI: gpui-kit only, exact pin, no direct gpui crates (accepted)
+- 0003 No-panic policy enforced by clippy restriction lints + TTSR (accepted)
+- 0004 One crate per category; dependency gate = deny.toml + skill://dep-review; tokio, thiserror-only (accepted)
+- 0005 Engine/UI split, ACP-first agent adapters, git CLI worktrees, journal-backed state (superseded by 0008)
+- 0006 cargo-nextest is the only test runner; doctests disabled (accepted)
+- 0007 Virtual workspace (apps/*, crates/*, xtask), `cargo ci`, dev/profiling profiles, tracing+panic hook, Zed nextest/CodeLLDB wiring (accepted)
+- 0008 Two processes (`dial` GUI + headless `dial-daemon`), tokio UDS/named-pipe IPC with token auth, JSON+raw frames, seq/epoch resync; crate layering in xtask (accepted)
+- 0009 Native agent (dial-native, dial-llm) + ACP client (schema crate + own driver) behind one adapter trait; daemon-hosted MCP (HTTP/stdio proxy) (accepted)
+- 0010 libghostty-vt terminal via `dial-ghostty` unsafe island (amends 0003's forbid), Zig 0.16 submodule build; PTY = alacritty `tty` only (accepted)
+- 0011 UI first: OKLCH tokens, Inter/JetBrains Mono, Apple spring presets, reduced motion, frame budgets (accepted)
+
+## Hot lessons
+- L-0001 Never create .omp/AGENTS.md or CLAUDE.md — they shadow/compete with root AGENTS.md (omp)
+- L-0002 `cargo nextest run` exits 4 when zero tests match (e.g. `-p` on an empty crate); use `--no-tests=warn` there (nextest)
+- L-0003 TTSR default repeatMode `once` misses repeat violations; project config uses after-gap (omp)
+- L-0010 `strip = "debuginfo"` drops line tables unless `split-debuginfo = "packed"` (build)
+- L-0007 rs-no-panic TTSR fires inside `#[cfg(test)]` too; write tests with `assert!(matches!(..))`/`is_ok_and` (omp, testing)

@@ -1,0 +1,16 @@
+# Developer shortcuts (ADR 0007). Aliases may chain other aliases.
+[alias]
+xtask = "run --package xtask --quiet --"
+# All gates in order: fmt → clippy → nextest → deny.
+ci = "xtask ci"
+new-crate = "xtask new-crate"
+lint = "clippy --workspace --all-targets --all-features --locked -- -D warnings"
+# Shadows the built-in `cargo t` (= cargo test) so the shorthand runs nextest.
+t = "nextest run --workspace --all-features --locked"
+dial = "run --package dial --"
+daemon = "run --package dial-daemon --"
+
+# Defaults for `cargo run` / `cargo nextest run`; a value already set in the shell wins.
+[env]
+RUST_BACKTRACE = "1"
+RUST_LOG = "info,dial=debug"

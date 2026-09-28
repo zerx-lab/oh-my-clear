@@ -1,0 +1,116 @@
+# cargo-deny 0.20 — dependency gate (machine half). Human half: skill://dep-review.
+# Run: cargo deny --all-features check
+[graph]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+]
+all-features = true
+
+[output]
+feature-depth = 1
+
+[advisories]
+yanked = "deny"
+# Direct deps must be maintained. gpui-kit 0.7 transitively carries unmaintained
+# instant/paste/rustybuzz/ttf-parser/rustls-pemfile with no upgrade path.
+unmaintained = "workspace"
+unsound = "all"
+unused-ignored-advisory = "deny"
+ignore = [
+    # { id = "RUSTSEC-YYYY-NNNN", reason = "<why unaffected> — <tracking link>" },
+]
+
+[licenses]
+confidence-threshold = 0.93
+unused-allowed-license = "allow"
+include-dev = false
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "BSL-1.0",
+    "CC0-1.0",
+    "Unlicense",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "bzip2-1.0.6",
+]
+exceptions = []
+
+[licenses.private]
+ignore = true
+
+[bans]
+# gpui brings ~85 duplicated crates; deny would need a skip list that churns every bump.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "simplest-path"
+workspace-default-features = "allow"
+external-default-features = "allow"
+# One crate per category (docs/memory/deps.md). `wrappers` = parents allowed to pull it in.
+deny = [
+    { crate = "smol", wrappers = ["gpui-base", "gpui-component", "gpui-pre-linux"], reason = "async runtime is tokio; smol only via gpui" },
+    { crate = "async-std", reason = "async runtime is tokio" },
+    { crate = "ureq", reason = "HTTP client is reqwest" },
+    { crate = "isahc", reason = "HTTP client is reqwest" },
+    { crate = "surf", reason = "HTTP client is reqwest" },
+    { crate = "snafu", reason = "errors: thiserror only" },
+    { crate = "eyre", reason = "errors: thiserror only" },
+    { crate = "color-eyre", reason = "errors: thiserror only" },
+    { crate = "failure", reason = "errors: thiserror only" },
+    { crate = "error-chain", reason = "errors: thiserror only" },
+    { crate = "openssl", reason = "TLS is rustls" },
+    { crate = "openssl-sys", reason = "TLS is rustls" },
+    { crate = "native-tls", reason = "TLS is rustls" },
+    { crate = "env_logger", reason = "logging is tracing-subscriber" },
+    { crate = "simplelog", reason = "logging is tracing-subscriber" },
+    { crate = "fern", reason = "logging is tracing-subscriber" },
+    # ADR 0008: IPC is tokio UDS / named pipes + serde_json/raw frames; spawn uses std.
+    { crate = "interprocess", reason = "IPC transport is tokio (ADR 0008)" },
+    { crate = "bincode", reason = "unmaintained (RUSTSEC-2025-0141); IPC wire is JSON + raw frames (ADR 0008)" },
+    { crate = "daemonize", reason = "unmaintained (RUSTSEC-2025-0069); detach via std CommandExt (ADR 0008)" },
+    # ADR 0009: own ACP driver + hand-rolled provider clients on reqwest.
+    { crate = "agent-client-protocol", reason = "SDK pulls a second I/O stack; use agent-client-protocol-schema + own tokio driver (ADR 0009)" },
+    { crate = "async-openai", reason = "provider clients are hand-rolled in dial-llm (ADR 0009)" },
+    { crate = "genai", reason = "provider clients are hand-rolled in dial-llm (ADR 0009)" },
+    { crate = "rig-core", reason = "provider clients are hand-rolled in dial-llm (ADR 0009)" },
+    { crate = "eventsource-stream", reason = "SSE framer is hand-rolled in dial-llm (ADR 0009)" },
+    # ADR 0010: libghostty-vt via dial-ghostty; PTY via alacritty_terminal tty.
+    { crate = "portable-pty", reason = "no release in 12 months, Windows kill bug; PTY is alacritty_terminal tty (ADR 0010)" },
+    { crate = "libghostty-vt", reason = "pins zig 0.15 and clones in build.rs; use dial-ghostty (ADR 0010)" },
+    { crate = "libghostty-vt-sys", reason = "pins zig 0.15 and clones in build.rs; use dial-ghostty (ADR 0010)" },
+    # ADR 0011: OKLCH conversion is ~25 lines in dial-ui.
+    { crate = "palette", reason = "color math lives in dial-ui tokens (ADR 0011)" },
+]
+skip = []
+skip-tree = []
+
+[bans.workspace-dependencies]
+duplicates = "deny"
+include-path-dependencies = true
+unused = "deny"
+
+# lazy_static / once_cell etc. as direct deps → use std::sync::LazyLock / OnceLock.
+[bans.std-replacements]
+scope = "workspace"
+level = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+required-git-spec = "rev"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+unused-allowed-source = "warn"
