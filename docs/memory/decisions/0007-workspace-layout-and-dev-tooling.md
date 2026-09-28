@@ -23,7 +23,7 @@ The user asked for a multi-crate workspace structure optimised for debugging and
 
 ### Consequences
 * Good, because boundaries are physical (crate privacy, per-crate `cargo nextest -p`), editor diagnostics equal the clippy gate, and `cargo ci` is one command.
-* Bad, because the library crates are empty until their milestone; bare `cargo check` covers only the app (gates always use `--workspace`).
+* Bad, because the library crates stay empty until code needs them; bare `cargo check` covers only the app (gates always use `--workspace`).
 
 ## Evidence
 - `cargo ci` green; `cargo dial` logs startup; bad `RUST_LOG` → exit 1 with message; `cargo new-crate probe …` produced a member that passed clippy; throwaway crate confirmed `dial=debug` matches `dial_engine` targets and the panic hook logs backtraces (2026-09-28)

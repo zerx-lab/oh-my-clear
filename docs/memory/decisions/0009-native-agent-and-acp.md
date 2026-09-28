@@ -37,10 +37,10 @@ Chosen: **one trait, two families** (plus `pty` and a `mock` adapter behind `tes
   - Must round-trip opaque provider state (thinking `signature`, `encrypted_content`, `thoughtSignature`) and place cache breakpoints exactly.
   - API keys live in the OS keychain (`keyring`).
   - **No subscription OAuth in the native agent**: Anthropic forbids it in third-party products. Subscription users run Claude Code/Codex/Gemini through ACP.
-- **Sandbox (phased):**
-  - P0: approvals, worktree scoping and a path policy.
-  - P1: macOS `sandbox-exec`; Linux `bwrap`, or a Landlock/seccomp self-re-exec helper using safe APIs.
-  - P2: Windows restricted token, which needs a new unsafe island under ADR 0010's policy.
+- **Sandbox policy:**
+  - Always: approvals, worktree scoping and a path policy in the file tools.
+  - macOS: `sandbox-exec` profiles. Linux: `bwrap` when installed, otherwise a Landlock/seccomp self-re-exec helper using safe APIs.
+  - Windows: restricted token, which requires a new unsafe island under ADR 0010's policy (ADR amendment first).
 - **ACP client (`dial-agent/acp`):**
   - Protocol v1 now, with the data model shaped for v2.
   - Uses `agent-client-protocol-schema =1.9.1` (`default-features = false`) plus our own tokio NDJSON JSON-RPC driver, reusable later to serve `dial-native` as an ACP agent.

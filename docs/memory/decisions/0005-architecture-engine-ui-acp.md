@@ -22,7 +22,7 @@ Planned workspace (`proto ← core ← {agent, process, term, git, store, mcp} �
 
 Data flow: UI → `Command` → engine router → journal append → session actor → adapter ↔ agent child (in its worktree) → `AgentEvent` → journal + fold → `EngineEvent` broadcast → UI entities (`cx.notify`, coalesced ~100 ms). Permission requests round-trip as Commands. Startup replays the journal and marks in-flight runs aborted.
 
-Open: ACP schema crate + own tokio driver (preferred) vs full SDK; rmcp vs hand-rolled MCP. Accept (or supersede) when M2 starts.
+Open: ACP schema crate + own tokio driver (preferred) vs full SDK; rmcp vs hand-rolled MCP (resolved by ADR 0009).
 
 ### Consequences
 * Good, because the engine is testable headless (mock adapter + nextest), UI state is a pure fold, and a daemon/remote mode becomes a transport swap.

@@ -1,15 +1,11 @@
 # Memory index
 <!-- CORE memory, auto-loaded via AGENTS.md. Budget ≤80 lines / ≤6 KB. One line per entry; detail lives in linked files. Procedure: skill://memory -->
-Last consolidated: 2026-09-28 · Sessions since consolidation: 3
+Last consolidated: 2026-09-28
 
-Memory is heuristic context, not ground truth: verify against the repo before acting; if the repo or the user contradicts it, they win — fix or delete the stale entry.
-
-## Current focus
-- Architecture v2 (ADRs 0008–0011): UI process + dial-daemon over IPC, native agent + ACP, libghostty-vt terminal (dial-ghostty unsafe island, Zig 0.16), Apple-style spring UI. Layering checked by `cargo xtask layers`. Next: M1 window, M1.5 daemon/IPC.
+Memory records development rules and their reasons — never progress, milestones, schedules, roadmaps or session logs. It is heuristic context, not ground truth: verify against the repo before acting; if the repo or the user contradicts it, they win — fix or delete the stale entry.
 
 ## Files (docs/memory/, read on demand)
-- active-context.md — current work, open questions, next steps
-- progress.md — milestones, known issues, last 10 session-log entries
+- open-questions.md — undecided development questions (no progress/plans)
 - lessons.md — non-obvious bugs, gotchas, errata (grep by tag)
 - deps.md — dependency ledger: one crate per category + review evidence
 - glossary.md — domain vocabulary (Run/Task/Dispatch/Session/Worktree/…)
@@ -27,6 +23,7 @@ Memory is heuristic context, not ground truth: verify against the repo before ac
 - 0009 Native agent (dial-native, dial-llm) + ACP client (schema crate + own driver) behind one adapter trait; daemon-hosted MCP (HTTP/stdio proxy) (accepted)
 - 0010 libghostty-vt terminal via `dial-ghostty` unsafe island (amends 0003's forbid), Zig 0.16 submodule build; PTY = alacritty `tty` only (accepted)
 - 0011 UI first: OKLCH tokens, Inter/JetBrains Mono, Apple spring presets, reduced motion, frame budgets (accepted)
+- 0012 Docs/memory record development rules only — no progress, milestones, schedules, roadmaps, session logs; TTSR `docs-no-schedule` (accepted; amends 0001)
 
 ## Hot lessons
 - L-0001 Never create .omp/AGENTS.md or CLAUDE.md — they shadow/compete with root AGENTS.md (omp)

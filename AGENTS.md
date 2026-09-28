@@ -3,7 +3,7 @@
 ## Project Overview
 dial is a multi-agent orchestration desktop app: it runs coding agents in parallel, each in its own git worktree, and lets the user and the agents coordinate their work. It ships **its own native coding agent** (`dial-native`) for the tightest control over orchestration and task execution, and any **ACP-capable agent** (Claude Code, Codex, Gemini, OpenCode, Qwen, Copilot, …) plugs in through the same adapter trait. It is inspired by Orca (github.com/stablyai/orca) and Zeron (github.com/zeronsh/zeron). Targets: macOS, Windows (MSVC), Linux, all first-class, built in Rust on gpui-kit (https://gpui-kit.com/llms.txt). The UI is the product's first principle: refined, keyboard-first, Apple-style spring motion (ADR 0011).
 
-Status: scaffolding stage. The ADR 0008 crate layout exists (see Key Directories); `dial-ghostty` builds libghostty-vt and wraps it, `dial-telemetry` is shared by both binaries, the other library crates are still empty. Both binaries only set up logging and exit. There is no gpui-kit window yet (milestone M1).
+Status: scaffolding stage. The ADR 0008 crate layout exists (see Key Directories); `dial-ghostty` builds libghostty-vt and wraps it, `dial-telemetry` is shared by both binaries, the other library crates are still empty. Both binaries only set up logging and exit. There is no gpui-kit window yet.
 
 ## Architecture & Data Flow
 Accepted architecture: ADR 0008 (process split, IPC, layering), 0009 (native agent + ACP + MCP), 0010 (terminal), 0011 (UI/motion).
@@ -28,7 +28,7 @@ Accepted architecture: ADR 0008 (process split, IPC, layering), 0009 (native age
   - `tasks.json`: nextest tasks that replace the gutter `cargo test` runnables.
   - `debug.json`: CodeLLDB scenarios.
 - `.omp/`: omp harness config. `RULES.md` holds the sticky hard rules. `rules/` holds TTSR rules, the always-apply rule, and rulebook rules. `skills/` has `memory` and `dep-review`. `config.yml` holds the TTSR settings.
-- `docs/memory/`: project memory (index, active context, progress, lessons, deps ledger, glossary, `decisions/` ADRs).
+- `docs/memory/`: project memory: development rules and their reasons (index, ADRs in `decisions/`, lessons, deps ledger, glossary, open questions) — never progress, milestones, schedules or session logs.
 - `docs/research/`: dated research snapshots (gpui-kit, Zeron/Orca, Rust gates, memory, omp config, libghostty-vt, native agent, ACP, daemon/IPC, UI motion). Treat them as evidence, not as current truth.
 - `.config/nextest.toml`: test-runner profiles.
 
@@ -97,7 +97,7 @@ Aliases and other commands:
 - `xtask/src/layers.rs`: `LAYERS` (allowed internal edges), `CONFINED` external crates, `UNSAFE_ISLANDS`.
 - `rust-toolchain.toml`: pins toolchain 1.98.0. Bump it together with `rust-version` and re-check the lints.
 - `.omp/RULES.md`: non-negotiables sent with every request.
-- `.omp/rules/*.md`: `rs-no-panic`, `rs-no-index`, `rs-expect-not-allow`, `rs-result-type`, `rs-unsafe-island`, `gpui-panicking-apis`, `term-no-alacritty-emulator`, `no-cargo-test`, `deps-banned-crates`, `deps-manifest-edit`, `deps-cargo-cli` (TTSR); `memory-protocol` (always-apply); `gpui-patterns`, `ui-design-motion` (rulebook).
+- `.omp/rules/*.md`: `rs-no-panic`, `rs-no-index`, `rs-expect-not-allow`, `rs-result-type`, `rs-unsafe-island`, `gpui-panicking-apis`, `term-no-alacritty-emulator`, `no-cargo-test`, `deps-banned-crates`, `deps-manifest-edit`, `deps-cargo-cli`, `docs-no-schedule` (TTSR); `memory-protocol` (always-apply); `gpui-patterns`, `ui-design-motion` (rulebook).
 - `.omp/skills/dep-review/SKILL.md` and `.omp/skills/memory/SKILL.md`: the procedures for dependencies and memory.
 
 ## Runtime/Tooling Preferences
@@ -123,6 +123,7 @@ Aliases and other commands:
 ## Memory
 Project memory lives in docs/memory/. The index below is auto-loaded; read everything else on demand with read or grep.
 - Before non-trivial work, check the index and read the ADRs and lessons for the area you are touching.
+- Docs and memory record development rules, decisions and their evidence only. Never write progress, milestones, schedules, roadmaps, phase plans, next-step lists or session logs anywhere in the repo (user rule; enforced by TTSR `docs-no-schedule`; `git log` is the history).
 - Memory is heuristic. The repo state and the user take precedence. Fix or delete stale entries in the same change.
 - Write triggers are in rule://memory-protocol. Procedure, templates, consolidation, and promotion into lints and TTSR are in skill://memory.
 - Subagents do not edit docs/memory/. They return "Memory candidates" instead.

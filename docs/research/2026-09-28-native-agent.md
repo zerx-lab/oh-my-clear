@@ -14,10 +14,10 @@ Anything I could not check directly is marked [UNVERIFIED].
 ## 0. Recommendation (TL;DR)
 
 1. **Shape.** The native agent is **one more adapter behind the same trait as ACP**. It runs in-process in the daemon (engine), on the daemon's tokio runtime, and emits the same `AgentEvent` stream. This is exactly Zed's design: `NativeAgentConnection` implements the same `acp_thread::AgentConnection` trait as external ACP agents, and both feed one `AcpThread` state object ([zd] `crates/agent/src/agent.rs:2193,2769`, `crates/acp_thread/src/connection.rs:91`). Model `AgentEvent` as **upserts keyed by id** (message/tool-call/plan). ACP v2 drafts move in that direction (from the ACP research peer [UNVERIFIED here]).
-2. **Crates.** Add **2 crates now** and **1 later**:
+2. **Crates.** Add **3 crates**:
    - `dial-llm`: provider wire clients plus normalized stream types.
    - `dial-native`: agent loop, tools, edit engine, context management.
-   - `dial-sandbox` (phase 2): the policy model plus per-OS launchers.
+   - `dial-sandbox`: the policy model plus per-OS launchers.
 
    Orchestration (Run/Task/Dispatch/Message/Gate) reaches the native agent through an `OrchestratorPort` trait. The engine implements it. It shares one tool-schema definition with `dial-mcp`, so the native agent and third-party agents see identical orchestration tools.
 3. **Providers: hand-rolled typed clients on reqwest 0.13, not a framework crate.** There are four wire formats:
@@ -34,10 +34,10 @@ Anything I could not check directly is marked [UNVERIFIED].
    - OpenAI GPT family: `apply_patch` (codex's freeform grammar).
 
    opencode switches between them per model ([oc] `tool/registry.ts:297-300`).
-7. **Sandboxing, phased. None of the phases needs `unsafe` in dial until Windows.**
-   - **P0:** approvals, worktree scoping and a path policy in the file tools.
-   - **P1:** macOS `/usr/bin/sandbox-exec -p <profile>` and Linux `bwrap` when installed. Otherwise a Landlock/seccomp self-re-exec helper that uses only safe APIs (`landlock`, `seccompiler`, `CommandExt::exec`).
-   - **P2:** Windows restricted token. This needs either a workspace policy change (`unsafe_code` `forbid`→`deny`, plus one `#[expect(unsafe_code)]` module) or a separate helper binary.
+7. **Sandboxing by platform. Only the Windows mechanism needs `unsafe` in dial.**
+   - **All platforms:** approvals, worktree scoping and a path policy in the file tools.
+   - **macOS / Linux:** macOS `/usr/bin/sandbox-exec -p <profile>` and Linux `bwrap` when installed. Otherwise a Landlock/seccomp self-re-exec helper that uses only safe APIs (`landlock`, `seccompiler`, `CommandExt::exec`).
+   - **Windows:** restricted token. This needs either a workspace policy change (`unsafe_code` `forbid`→`deny`, plus one `#[expect(unsafe_code)]` module) or a separate helper binary.
 
 ---
 
@@ -111,7 +111,7 @@ Notes on the trait:
   - Return a unified diff (`similar`).
   - **dial: `edit` with 3 tiers (exact → trailing-whitespace → trimmed/indent-flexible, as in codex `seek_sequence` plus opencode's `IndentationFlexible`), refuse ambiguous matches, and `apply_patch` for GPT models.**
 - **Parallel tool calls with a correctness guard.** Codex's RwLock scheme is the simplest correct design. **dial: `ToolSpec::parallel_safe` (reads/grep/glob/web = read guard; edit/write/shell = write guard).**
-- **Streaming everywhere.** Stream text, reasoning and tool-input deltas to the UI. Zed even applies edits while `old_text` is still streaming. **dial MVP: stream tool-input to the UI; streamed application is phase 2.**
+- **Streaming everywhere.** Stream text, reasoning and tool-input deltas to the UI. Zed even applies edits while `old_text` is still streaming. **dial: stream tool-input to the UI; streamed edit application is optional.**
 - **Interruption.** One `CancellationToken` per turn and a child token per tool. Tools poll the token. Shells get kill-tree (process-wrap). Background processes survive a turn interrupt (codex). **dial: same; long-running shells become dial terminals, reusing the daemon's terminal service.**
 - **Permission model.**
   - Rule engine: tool × path/command pattern → allow / ask / deny.
@@ -199,7 +199,7 @@ If `rmcp` is adopted with its HTTP transports, switch the framer to `sse-stream`
   - Anthropic: forbidden for third-party products ("Using OAuth tokens obtained through Claude Free, Pro, or Max accounts in any other product, tool, or service — including the Agent SDK — is not permitted") ([CC-legal]).
   - OpenAI: ChatGPT/Codex OAuth reuse in third-party apps is not officially supported (secondary source [Puter], [UNVERIFIED primary]).
   - **dial: subscriptions only via the official CLIs over ACP.** The native agent takes API keys, OpenRouter, cloud keys and local servers.
-  - An `oauth2` crate is not needed now. The exception is **MCP server OAuth** (rmcp has an `auth` feature, as used by goose [gs] `Cargo.toml:23`), which is a later-phase need.
+  - An `oauth2` crate is not needed now. The exception is **MCP server OAuth** (rmcp has an `auth` feature, as used by goose [gs] `Cargo.toml:23`), which only matters for MCP servers that require OAuth.
 
 ---
 
@@ -216,7 +216,7 @@ If `rmcp` is adopted with its HTTP transports, switch the framer to `sse-stream`
 | schemars | 1.2.2 | 2026-07-27 | 494.4M / 176.8M | MIT | GREsau/schemars | none | `#[derive(JsonSchema)]` tool inputs, as in Zed ([zd] `thread.rs:5180-5262`); already pulled by gpui-pre and the ACP schema crate |
 | tiktoken-rs | 0.12.1 | 2026-09-24 | 18.3M / 7.46M | MIT | zurawiki | none | **not recommended.** OpenAI-only vocab. Provider `usage` plus bytes/4 is what codex does |
 | diffy / imara-diff | 0.5.2 / 0.2.0 | 2026-08-31 / 2025-06-14 | 16.3M / 32.8M | MIT OR Apache-2.0 / Apache-2.0 | — | none | alternatives to `similar`; one diff crate only |
-| tree-sitter | 0.27.0 | 2026-08-30 | 41.2M / 15.2M | MIT | — | none | Phase 3 only: shell-command parsing for exec policy (codex uses tree-sitter-bash for this, [cx] `Cargo.toml`); gpui-kit already has an optional tree-sitter feature |
+| tree-sitter | 0.27.0 | 2026-08-30 | 41.2M / 15.2M | MIT | — | none | Only for an exec policy: shell-command parsing (codex uses tree-sitter-bash for this, [cx] `Cargo.toml`); gpui-kit already has an optional tree-sitter feature |
 | starlark | 0.14.2 | 2026-06-05 | 5.90M / 2.60M | Apache-2.0 | facebook | none | codex's exec-policy DSL. **Not recommended**: a TOML/JSON prefix-rule table is enough |
 
 Licenses: all are inside the deny.toml allowlist (Unlicense, CC0-1.0, MIT, Apache-2.0 are listed).
@@ -234,7 +234,7 @@ What the references do (§2): codex = Seatbelt / bubblewrap(+seccomp) / Windows 
 | extrasafe | 0.5.1 | 2024-04-16 | 36k / 9k | MIT | small, stale → no |
 | nono | 0.78.0 | 2026-09-16 | 477k / 417k | Apache-2.0 | Cross-platform "capability-based sandboxing (Landlock + Seatbelt)". Pulls keyring 3, sigstore, x509 → too heavy, and a second keyring major |
 | hakoniwa | 1.8.0 | 2026-09-25 | 41k / 9k | LGPL-3.0 WITH linking exception | **license not in allowlist**, Linux-only |
-| rappct | 0.13.3 | 2025-10-23 | 24k / 18k | MIT | Windows AppContainer toolkit on `windows` 0.62. Young, single-maintainer → evaluate in P2 only |
+| rappct | 0.13.3 | 2025-10-23 | 24k / 18k | MIT | Windows AppContainer toolkit on `windows` 0.62. Young, single-maintainer → evaluate only for the Windows sandbox |
 
 Unsafe exposure and policy fit (`unsafe_code = "forbid"` today):
 
@@ -257,9 +257,9 @@ Unsafe exposure and policy fit (`unsafe_code = "forbid"` today):
     - (a) change the workspace lint to `unsafe_code = "deny"` and put `#![expect(unsafe_code, reason = "Win32 token FFI")]` on a single `dial-sandbox::windows` module, under a TTSR/lint that forbids it anywhere else;
     - (b) ship the Windows launcher as a separate small helper binary crate with its own lint table [UNVERIFIED: `[lints] workspace = true` is all-or-nothing, so the helper would copy the table minus `unsafe_code`];
     - (c) use `rappct`.
-  - Recommend (a) at P2, with a written ADR.
-  - Until then, Windows gets approvals + a Job Object kill-tree (process-wrap) + file-tool path policy. That is honest parity with Claude Code, which has no native Windows sandbox.
-- **Network.** Phase 3: an allowlist proxy (Claude Code routes sandboxed traffic through a proxy via socat [CC-sandbox]; codex has a `network-proxy` crate [cx]).
+  - Recommend (a), with a written ADR.
+  - Without it, Windows gets approvals + a Job Object kill-tree (process-wrap) + file-tool path policy. That is honest parity with Claude Code, which has no native Windows sandbox.
+- **Network.** An allowlist proxy (Claude Code routes sandboxed traffic through a proxy via socat [CC-sandbox]; codex has a `network-proxy` crate [cx]).
 
 Because `dial-sandbox` wraps any `Command`, it can also **sandbox third-party ACP agent processes**, not just native tool calls. That is the main argument for making it a separate crate.
 
@@ -275,52 +275,15 @@ Direction stays `proto ← core ← {adapters…} ← engine ← ui ← apps`. N
 | `dial-core` | core | proto | reducers; `OrchestratorPort` trait (or in dial-agent) | already exists; pure |
 | `dial-llm` **(new)** | adapter | proto (usage/ids only; could be none) | wire types + decoders for Anthropic / Responses / Gemini / Chat-compatible; SSE framer; retry; model catalogue (models.dev snapshot); keyring-backed credential lookup | Largest serde surface; changes on vendor cadence; reusable by the engine for titles, commit messages and summaries without the agent loop; testable with recorded SSE fixtures |
 | `dial-native` **(new)** | adapter | proto, core, agent (trait), llm, process, git, sandbox | loop (turn/cancel/parallel guard), tool registry + tools, edit engine (`edit` tiers + `apply_patch` parser), permission evaluator, compaction, checkpoints | The biggest code mass (codex-rs has 153 workspace members with `core` as the hub). Keeps ignore/grep/similar/reqwest out of `dial-agent`'s ACP/PTY tests; parallel compilation |
-| `dial-sandbox` **(new, P1/P2)** | adapter (leaf) | proto | `SandboxPolicy{ReadOnly, WorkspaceWrite{roots, net}, Full}` → per-OS `Command` wrapper; Linux helper entrypoint; Windows unsafe module (P2) | Used by both dial-native and dial-agent/acp (sandboxing child agents); the only place unsafe may ever live |
-| `dial-agent` | adapter | proto, core, process, term (+ sandbox from P1, to wrap ACP child agents) | the `AgentAdapter`/`AgentSession` trait; `acp/`, `pty/`, `mock/` | as ADR 0005 |
+| `dial-sandbox` **(new)** | adapter (leaf) | proto | `SandboxPolicy{ReadOnly, WorkspaceWrite{roots, net}, Full}` → per-OS `Command` wrapper; Linux helper entrypoint; Windows unsafe module | Used by both dial-native and dial-agent/acp (sandboxing child agents); the only place unsafe may ever live |
+| `dial-agent` | adapter | proto, core, process, term (+ sandbox, to wrap ACP child agents) | the `AgentAdapter`/`AgentSession` trait; `acp/`, `pty/`, `mock/` | as ADR 0005 |
 | `dial-engine` | engine | all adapters | registers `NativeAdapter` alongside ACP; implements `OrchestratorPort` | as ADR 0005 |
 
 - **Rejected: a `dial-tools` crate.** No consumer other than dial-native needs the tools. `dial-mcp` exposes *orchestration*, not fs tools.
 - **Rejected: native inside `dial-agent`.** It would drag the whole LLM stack into every adapter build.
-- **Net: +2 crates now, +1 at P1.**
+- **Net: +3 crates.**
 
-Workspace dependencies this adds (for `skill://dep-review`): keyring (4, `v1` + zbus `rt-tokio-crypto-rust`), ignore, globset, grep-searcher, grep-regex, schemars (reuse), similar and notify (already proposed), landlock + seccompiler (Linux-only target deps, P1), tokio-util (`CancellationToken`, `AbortOnDropHandle`; 0.7.19, 2026-07-21, 805.8M / 173.9M downloads, MIT, tokio-rs/tokio, no advisories).
-
----
-
-## 7. Phased roadmap
-
-**MVP: native agent usable for real work (single session).**
-- `dial-llm`: Anthropic Messages (streaming, tools, adaptive thinking, automatic caching) and OpenAI Chat-compatible (DeepSeek/Qwen/Kimi/GLM/OpenRouter/Ollama/LM Studio). Keyring API keys.
-- `dial-native`:
-  - loop with a per-turn `CancellationToken`;
-  - parallel tool calls with the read/write guard;
-  - tools `read`, `write`, `edit` (exact + 2 fuzzy tiers, uniqueness), `grep`, `glob`, `list`, `shell` (timeout, output cap, kill-tree), `todo`/plan, `ask_user`;
-  - orchestration tools via `OrchestratorPort` (`task_create`, `dispatch`, `message_send`, `gate_open`/`gate_wait`, `task_list`; exact names from the glossary).
-- Permission rules (allow/ask/deny × tool × glob), with presets per session.
-- Worktree scoping for file tools; shell runs with cwd = worktree.
-- `AgentEvent` parity with the ACP adapter. Journal replay works for native sessions.
-- Compaction v1: prune old tool outputs, then summarize at 80% of context.
-
-**Parity: Claude Code / Codex class.**
-- OpenAI Responses (stateless + encrypted reasoning, `prompt_cache_key`) + `apply_patch` tool for GPT models. Gemini native with `thoughtSignature` round-trip.
-- Streaming tool-input UI previews; streamed edit application.
-- Shadow-git checkpoints per prompt + rewind.
-- MCP client (rmcp or hand-rolled, following the dial-mcp decision), so user MCP servers work in the native agent.
-- `web_fetch` (reqwest + HTML→text) and provider-hosted web search.
-- Subagents = child Task/Dispatch, with depth limit and restricted tools.
-- Background shells as dial terminals (`exec` + `write_stdin` style).
-- `dial-sandbox` P1: macOS Seatbelt profiles; Linux bwrap / Landlock helper.
-- Skills / project rules (`AGENTS.md`) loading.
-
-**Beyond.**
-- Windows restricted-token sandbox (policy ADR for unsafe).
-- Network allowlist proxy.
-- Exec policy with tree-sitter-bash command parsing.
-- Serve `dial-native` as a standalone ACP agent.
-- Cross-agent subagents: the coordinator picks native vs Claude Code vs Codex per Task.
-- LSP diagnostics tool.
-- Provider-native compaction (Anthropic/OpenAI server compaction items, as Zed's `CompactionInfo::ProviderNative`).
-- Eval harness: replay recorded sessions against new prompts and models.
+Workspace dependencies this adds (for `skill://dep-review`): keyring (4, `v1` + zbus `rt-tokio-crypto-rust`), ignore, globset, grep-searcher, grep-regex, schemars (reuse), similar and notify (already proposed), landlock + seccompiler (Linux-only target deps), tokio-util (`CancellationToken`, `AbortOnDropHandle`; 0.7.19, 2026-07-21, 805.8M / 173.9M downloads, MIT, tokio-rs/tokio, no advisories).
 
 ---
 
