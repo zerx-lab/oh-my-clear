@@ -14,6 +14,11 @@ pub const PANEL: Spring = Spring::new(Duration::from_millis(350)).with_epsilon(P
 /// presentation.
 pub const PANEL_EXIT: Spring = Spring::new(Duration::from_millis(245)).with_epsilon(PIXEL_EPSILON);
 
+/// Small in-place state changes (a disclosure chevron turning, a selection indicator
+/// sliding): 0.25 s, no bounce. Settles at the default fractional epsilon, so it can drive
+/// a 0–1 progress value, not only a length in px.
+pub const UI: Spring = Spring::new(Duration::from_millis(250));
+
 /// Settling tolerance for springs driving a length in px: half a pixel is invisible, and
 /// the default (0.001) would keep requesting frames long after the motion looks done.
 const PIXEL_EPSILON: f32 = 0.5;

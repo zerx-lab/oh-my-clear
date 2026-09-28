@@ -1,32 +1,37 @@
-//! [`Engine`]: serves authenticated connections, tracks live clients and shutdown, and
-//! pushes [`Event`]s to attached UIs.
+//! [`Engine`]: serves authenticated connections, tracks live clients and shutdown, routes
+//! requests to the settings store and the job manager, and pushes [`Event`]s to attached
+//! UIs.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use omc_ipc::frame;
 use omc_ipc::server::Connection;
+use omc_proto::settings::Settings;
 use omc_proto::{
     ClientFrame, ClientKind, ErrorCode, Event, Request, Response, RpcError, ServerFrame,
 };
 use tokio::io::AsyncWrite;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
-use crate::Result;
+use crate::jobs::Jobs;
+use crate::settings::SettingsStore;
+use crate::{Error, Result};
 
 /// Answers queued per connection before senders wait.
 const OUTBOX: usize = 256;
 /// How long a `shutdown` request waits for its answer to reach the socket.
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(1);
-/// UI events buffered per connection; they are rare user actions, so a lagging UI only
-/// ever misses stale ones.
-const UI_EVENTS: usize = 16;
+/// UI events buffered per connection. Job progress (≤ 10 per second per job) dominates; a
+/// lagging UI only misses stale progress and asks `job_status` for the rest.
+const UI_EVENTS: usize = 256;
 
 /// An item for a connection's writer task.
 #[derive(Debug)]
 enum Outbound {
     /// Write this frame.
-    Frame(ServerFrame),
+    Frame(Box<ServerFrame>),
     /// Signal once every earlier frame has been written.
     Flush(oneshot::Sender<()>),
 }
@@ -43,6 +48,16 @@ struct Inner {
     ui_clients: watch::Sender<usize>,
     ui_events: broadcast::Sender<Event>,
     shutdown: watch::Sender<bool>,
+    settings: SettingsStore,
+    jobs: Jobs,
+}
+
+/// How an [`Engine`] is set up.
+#[derive(Debug, Clone, Default)]
+pub struct EngineConfig {
+    /// Where settings are persisted (see [`crate::default_settings_path`]); `None` keeps
+    /// them in memory only.
+    pub settings_path: Option<PathBuf>,
 }
 
 impl Default for Engine {
@@ -52,14 +67,54 @@ impl Default for Engine {
 }
 
 impl Engine {
+    /// An engine with in-memory settings.
     pub fn new() -> Self {
+        Self::with_config(EngineConfig::default())
+    }
+
+    /// An engine per `config`. Reads the settings file (blocking; call at startup).
+    pub fn with_config(config: EngineConfig) -> Self {
+        let settings = config
+            .settings_path
+            .map_or_else(SettingsStore::in_memory, SettingsStore::load);
         Self {
             inner: Arc::new(Inner {
                 clients: watch::Sender::new(0),
                 ui_clients: watch::Sender::new(0),
                 ui_events: broadcast::Sender::new(UI_EVENTS),
                 shutdown: watch::Sender::new(false),
+                settings,
+                jobs: Jobs::default(),
             }),
+        }
+    }
+
+    pub(crate) fn settings(&self) -> &SettingsStore {
+        &self.inner.settings
+    }
+
+    pub(crate) fn jobs(&self) -> &Jobs {
+        &self.inner.jobs
+    }
+
+    /// Validates and persists `settings` on a blocking thread, then tells every UI.
+    async fn put_settings(&self, settings: Settings) -> Result<(), RpcError> {
+        let engine = self.clone();
+        match tokio::task::spawn_blocking(move || engine.settings().put(settings)).await {
+            Ok(Ok(())) => {
+                tracing::info!("settings saved");
+                self.notify_ui(Event::SettingsChanged);
+                Ok(())
+            }
+            Ok(Err(err @ Error::SettingsIo { .. })) => {
+                tracing::warn!(%err, "cannot save settings");
+                Err(RpcError::new(ErrorCode::Io, err.to_string()))
+            }
+            Ok(Err(err)) => Err(RpcError::new(ErrorCode::Internal, err.to_string())),
+            Err(err) => Err(RpcError::new(
+                ErrorCode::Internal,
+                format!("saving settings: {err}"),
+            )),
         }
     }
 
@@ -77,13 +132,8 @@ impl Engine {
     /// Queues `event` for every attached UI. Returns how many UIs will receive it (0 when
     /// none is attached).
     pub fn notify_ui(&self, event: Event) -> usize {
-        match self.inner.ui_events.send(event) {
-            Ok(receivers) => {
-                tracing::debug!(?event, receivers, "event queued for attached UIs");
-                receivers
-            }
-            Err(_) => 0,
-        }
+        tracing::debug!(?event, "event for attached UIs");
+        self.inner.ui_events.send(event).unwrap_or(0)
     }
 
     /// Asks the daemon to exit (what a `shutdown` request does).
@@ -181,7 +231,7 @@ async fn forward_events(mut events: broadcast::Receiver<Event>, out: mpsc::Sende
             Err(broadcast::error::RecvError::Closed) => return,
         };
         if out
-            .send(Outbound::Frame(ServerFrame::Event { ev }))
+            .send(Outbound::Frame(Box::new(ServerFrame::Event { ev })))
             .await
             .is_err()
         {
@@ -199,6 +249,7 @@ struct Session {
 impl Session {
     /// Handles one request. `false` once the connection cannot be answered any more.
     async fn handle(&self, id: u64, req: Request) -> bool {
+        let engine = &self.engine;
         let res = match req {
             Request::Hello(_) => Err(RpcError::new(
                 ErrorCode::BadRequest,
@@ -206,13 +257,33 @@ impl Session {
             )),
             Request::Ping { nonce } => Ok(Response::Pong { nonce }),
             Request::Shutdown => return self.shutdown(id).await,
+            Request::SystemInfo => tokio::task::spawn_blocking(omc_apps::system_info)
+                .await
+                .map(Response::SystemInfo)
+                .map_err(|err| RpcError::new(ErrorCode::Internal, format!("system info: {err}"))),
+            Request::GetSettings => Ok(Response::Settings(engine.settings().get())),
+            Request::PutSettings(settings) => {
+                engine.put_settings(settings).await.map(|()| Response::Unit)
+            }
+            Request::StartJob(spec) => engine
+                .start_job(spec)
+                .await
+                .map(|job| Response::Job { job }),
+            Request::JobStatus { job } => engine.jobs().status(job).map(Response::JobStatus),
+            Request::JobResult { job } => engine.jobs().result(job).map(Response::JobResult),
+            Request::CancelJob { job } => engine.jobs().cancel(job).map(|()| Response::Unit),
+            Request::ReleaseJob { job } => engine.jobs().release(job).map(|()| Response::Unit),
+            Request::SpaceChildren { job, node } => engine
+                .jobs()
+                .space_children(job, node)
+                .map(Response::SpaceNodes),
         };
         self.reply(id, res).await
     }
 
     async fn reply(&self, id: u64, res: Result<Response, RpcError>) -> bool {
         self.out
-            .send(Outbound::Frame(ServerFrame::Res { id, res }))
+            .send(Outbound::Frame(Box::new(ServerFrame::Res { id, res })))
             .await
             .is_ok()
     }
@@ -235,12 +306,30 @@ impl Session {
     }
 }
 
-/// Owns the connection's write half: the only place frames are written.
+/// Owns the connection's write half: the only place frames are written. An answer too
+/// large for one frame is replaced by an `internal` error (nothing was written yet), so the
+/// connection survives; an oversized event is dropped.
 async fn write_frames<W: AsyncWrite + Unpin>(mut writer: W, mut outbox: mpsc::Receiver<Outbound>) {
     while let Some(item) = outbox.recv().await {
         match item {
             Outbound::Frame(msg) => {
-                if let Err(err) = frame::write(&mut writer, &msg).await {
+                let written = match frame::write(&mut writer, &msg).await {
+                    Err(omc_ipc::Error::FrameTooLarge(len)) => {
+                        tracing::warn!(len, "outgoing frame exceeds the frame limit");
+                        match *msg {
+                            ServerFrame::Res { id, .. } => {
+                                let res = Err(RpcError::new(
+                                    ErrorCode::Internal,
+                                    format!("answer of {len} bytes exceeds the frame limit"),
+                                ));
+                                frame::write(&mut writer, &ServerFrame::Res { id, res }).await
+                            }
+                            ServerFrame::Event { .. } => Ok(()),
+                        }
+                    }
+                    other => other,
+                };
+                if let Err(err) = written {
                     tracing::debug!(%err, "client writer stopped");
                     return;
                 }
@@ -256,6 +345,12 @@ async fn write_frames<W: AsyncWrite + Unpin>(mut writer: W, mut outbox: mpsc::Re
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
+    use omc_proto::files::{SpaceKind, SpaceListing};
+    use omc_proto::jobs::{
+        CleanSpec, DeleteMethod, JobId, JobOutput, JobSpec, JobState, Phase, ScanArea,
+    };
     use omc_proto::{Hello, PROTOCOL, Welcome};
     use tokio::io::{DuplexStream, ReadHalf, WriteHalf};
 
@@ -282,6 +377,8 @@ mod tests {
         reader: ReadHalf<DuplexStream>,
         writer: WriteHalf<DuplexStream>,
         next_id: u64,
+        /// Events that arrived while [`Self::call`] waited for an answer.
+        events: std::collections::VecDeque<Event>,
     }
 
     impl Client {
@@ -306,6 +403,7 @@ mod tests {
                 reader,
                 writer,
                 next_id: 0,
+                events: std::collections::VecDeque::new(),
             };
             match client.request(hello(kind)).await? {
                 Ok(Response::Welcome(_)) => Ok(client),
@@ -330,6 +428,60 @@ mod tests {
             match next.await {
                 Ok(Ok(Some(frame))) => Ok(frame),
                 other => Err(format!("expected a frame, got {other:?}")),
+            }
+        }
+
+        /// Like [`Self::request`], but buffers events that arrive before the answer.
+        async fn call(&mut self, req: Request) -> TestResult<Answer> {
+            let id = self.next_id;
+            self.next_id = self.next_id.wrapping_add(1);
+            frame::write(&mut self.writer, &ClientFrame::Req { id, req })
+                .await
+                .map_err(|err| format!("write request: {err}"))?;
+            loop {
+                match self.next_frame().await? {
+                    ServerFrame::Res { id: got, res } if got == id => return Ok(res),
+                    ServerFrame::Event { ev } => self.events.push_back(ev),
+                    other @ ServerFrame::Res { .. } => {
+                        return Err(format!("expected the answer to {id}, got {other:?}"));
+                    }
+                }
+            }
+        }
+
+        /// The next event (buffered first).
+        async fn next_event(&mut self) -> TestResult<Event> {
+            if let Some(ev) = self.events.pop_front() {
+                return Ok(ev);
+            }
+            match self.next_frame().await? {
+                ServerFrame::Event { ev } => Ok(ev),
+                other @ ServerFrame::Res { .. } => Err(format!("expected an event, got {other:?}")),
+            }
+        }
+
+        /// Consumes `job` events up to its final update; returns the running updates seen
+        /// and the final state.
+        async fn job_end(&mut self, job: JobId) -> TestResult<(usize, JobState)> {
+            let mut running = 0_usize;
+            loop {
+                match self.next_event().await? {
+                    Event::Job(update) if update.job == job => {
+                        if update.status.state.is_finished() {
+                            return Ok((running, update.status.state));
+                        }
+                        running = running.saturating_add(1);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        /// Starts `spec`; the new job's id.
+        async fn start(&mut self, spec: JobSpec) -> TestResult<JobId> {
+            match self.call(Request::StartJob(spec)).await? {
+                Ok(Response::Job { job }) => Ok(job),
+                other => Err(format!("start_job answered {other:?}")),
             }
         }
     }
@@ -438,6 +590,364 @@ mod tests {
             0,
             "a detached UI no longer receives events"
         );
+        Ok(())
+    }
+
+    /// A fresh, unique directory under the system temp dir.
+    fn temp_dir(name: &str) -> TestResult<PathBuf> {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static SEQ: AtomicU32 = AtomicU32::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "omc-engine-{name}-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed)
+        ));
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).map_err(|err| format!("clear {dir:?}: {err}"))?;
+        }
+        std::fs::create_dir_all(&dir).map_err(|err| format!("create {dir:?}: {err}"))?;
+        Ok(dir)
+    }
+
+    fn write_file(path: &Path, len: usize) -> TestResult {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|err| format!("mkdir {parent:?}: {err}"))?;
+        }
+        std::fs::write(path, vec![7_u8; len]).map_err(|err| format!("write {path:?}: {err}"))
+    }
+
+    /// Settings for filesystem tests: permanent deletion (never the user's Trash).
+    async fn permanent_deletes(client: &mut Client) -> TestResult {
+        let mut settings = Settings::default();
+        settings.clean.files_delete = DeleteMethod::Permanent;
+        settings.clean.junk_delete = DeleteMethod::Permanent;
+        ensure_eq!(
+            client.call(Request::PutSettings(settings)).await?,
+            Ok(Response::Unit),
+            "settings accepted"
+        );
+        Ok(())
+    }
+
+    async fn space_scan(client: &mut Client, root: &Path) -> TestResult<(JobId, SpaceListing)> {
+        let job = client
+            .start(JobSpec::Scan(ScanArea::SpaceLens {
+                root: root.display().to_string(),
+            }))
+            .await?;
+        let (_, state) = client.job_end(job).await?;
+        ensure_eq!(state, JobState::Done, "space scan finishes");
+        match client.call(Request::JobResult { job }).await? {
+            Ok(Response::JobResult(JobOutput::Space(listing))) => Ok((job, listing)),
+            other => Err(format!("job_result answered {other:?}")),
+        }
+    }
+
+    fn code(answer: &Answer) -> Option<ErrorCode> {
+        answer.as_ref().err().map(|err| err.code)
+    }
+
+    #[tokio::test]
+    async fn settings_persist_and_reload() -> TestResult {
+        let dir = temp_dir("settings")?;
+        let path = dir.join("nested").join("settings.toml");
+        let config = EngineConfig {
+            settings_path: Some(path.clone()),
+        };
+        let engine = Engine::with_config(config.clone());
+        let mut ui = Client::connect(&engine, ClientKind::Ui).await?;
+        ensure_eq!(
+            ui.call(Request::GetSettings).await?,
+            Ok(Response::Settings(Settings::default())),
+            "a missing file gives defaults"
+        );
+
+        let mut wanted = Settings::default();
+        wanted.clean.scan_threads = 4;
+        wanted.clean.exclude = vec!["~/Keep".to_owned()];
+        wanted.ui.insert("theme".to_owned(), "dark".to_owned());
+        let mut sent = wanted.clone();
+        sent.clean.exclude.push("   ".to_owned());
+        sent.clean.dev_project_max_depth = 0;
+        wanted.clean.dev_project_max_depth = 1;
+        ensure_eq!(
+            ui.call(Request::PutSettings(sent)).await?,
+            Ok(Response::Unit),
+            "put is accepted"
+        );
+        ensure_eq!(
+            ui.next_event().await?,
+            Event::SettingsChanged,
+            "UIs hear about the change"
+        );
+        ensure_eq!(
+            ui.call(Request::GetSettings).await?,
+            Ok(Response::Settings(wanted.clone())),
+            "get returns the sanitized settings"
+        );
+        ensure!(path.is_file(), "the settings file is written");
+
+        let reloaded = Engine::with_config(config.clone());
+        let mut cli = Client::connect(&reloaded, ClientKind::Cli).await?;
+        ensure_eq!(
+            cli.call(Request::GetSettings).await?,
+            Ok(Response::Settings(wanted)),
+            "a new engine loads the saved settings"
+        );
+
+        std::fs::write(&path, "clean = [not toml").map_err(|err| format!("corrupt: {err}"))?;
+        let recovered = Engine::with_config(config);
+        let mut cli = Client::connect(&recovered, ClientKind::Cli).await?;
+        ensure_eq!(
+            cli.call(Request::GetSettings).await?,
+            Ok(Response::Settings(Settings::default())),
+            "a corrupt file gives defaults"
+        );
+        let backup = std::fs::read_to_string(path.with_extension("toml.bak"));
+        ensure!(
+            backup
+                .as_deref()
+                .is_ok_and(|text| text == "clean = [not toml"),
+            "the corrupt file is kept as .bak: {backup:?}"
+        );
+        let _ignored = std::fs::remove_dir_all(&dir);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn space_lens_scan_drill_down_and_clean() -> TestResult {
+        let root = temp_dir("space")?;
+        // Files of at least 64 KiB get their own space-lens node; smaller ones go to `rest`.
+        write_file(&root.join("a").join("one.bin"), 256 << 10)?;
+        write_file(&root.join("b").join("two.bin"), 16 << 10)?;
+        write_file(&root.join("b").join("three.bin"), 16 << 10)?;
+        write_file(&root.join("c.bin"), 128 << 10)?;
+
+        let engine = Engine::new();
+        let mut ui = Client::connect(&engine, ClientKind::Ui).await?;
+        permanent_deletes(&mut ui).await?;
+        let (job, listing) = space_scan(&mut ui, &root).await?;
+        ensure_eq!(listing.node, 0, "the result is the root listing");
+        ensure_eq!(listing.files, 4, "every file is counted");
+        let child = |name: &str| listing.children.iter().find(|c| c.name == name).cloned();
+        let (Some(a), Some(b), Some(c)) = (child("a"), child("b"), child("c.bin")) else {
+            return Err(format!("children a, b, c.bin: {:?}", listing.children));
+        };
+        ensure!(
+            a.kind == SpaceKind::Dir && c.kind == SpaceKind::File,
+            "kinds: {a:?} {c:?}"
+        );
+        ensure!(a.bytes >= 256 << 10, "a holds its 256 KiB file: {a:?}");
+        ensure!(
+            listing.bytes >= a.bytes.saturating_add(b.bytes).saturating_add(c.bytes),
+            "the root size covers its children: {listing:?}"
+        );
+        ensure!(
+            listing.children.first().map(|n| n.id) == Some(a.id),
+            "largest child first: {:?}",
+            listing.children
+        );
+
+        match ui.call(Request::SpaceChildren { job, node: b.id }).await? {
+            Ok(Response::SpaceNodes(level)) => {
+                ensure_eq!(level.node, b.id, "the requested node is listed");
+                ensure_eq!(level.files, 2, "b holds two files");
+            }
+            other => return Err(format!("space_children answered {other:?}")),
+        }
+        ensure_eq!(
+            code(&ui.call(Request::SpaceChildren { job, node: 9_999 }).await?),
+            Some(ErrorCode::NotFound),
+            "unknown node"
+        );
+
+        let clean = ui
+            .start(JobSpec::Clean(CleanSpec {
+                scan_job: job,
+                items: vec![a.id],
+            }))
+            .await?;
+        let (_, state) = ui.job_end(clean).await?;
+        ensure_eq!(state, JobState::Done, "clean finishes");
+        match ui.call(Request::JobResult { job: clean }).await? {
+            Ok(Response::JobResult(JobOutput::Clean(report))) => {
+                ensure!(report.failures.is_empty(), "nothing failed: {report:?}");
+                ensure_eq!(report.removed, 1, "one item removed: {report:?}");
+            }
+            other => return Err(format!("clean result: {other:?}")),
+        }
+        ensure!(
+            !root.join("a").exists(),
+            "the cleaned node is gone from disk"
+        );
+        ensure!(root.join("b").exists(), "other nodes stay");
+        ensure!(
+            matches!(
+                ui.call(Request::JobResult { job }).await?,
+                Ok(Response::JobResult(JobOutput::Space(_)))
+            ),
+            "the scan tree is kept after a clean"
+        );
+
+        ensure_eq!(
+            ui.call(Request::ReleaseJob { job }).await?,
+            Ok(Response::Unit),
+            "release a finished job"
+        );
+        ensure_eq!(
+            code(&ui.call(Request::JobResult { job }).await?),
+            Some(ErrorCode::NotFound),
+            "a released job is gone"
+        );
+        let _ignored = std::fs::remove_dir_all(&root);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn queued_mutation_can_be_cancelled() -> TestResult {
+        let root = temp_dir("queue")?;
+        write_file(&root.join("keep.bin"), 4 << 10)?;
+        let engine = Engine::new();
+        let mut ui = Client::connect(&engine, ClientKind::Ui).await?;
+        permanent_deletes(&mut ui).await?;
+        let (scan, listing) = space_scan(&mut ui, &root).await?;
+        let items = listing.children.iter().map(|n| n.id).collect();
+
+        // Another mutation holds the permit, so this clean waits.
+        let permit = engine.jobs().hold_mutation();
+        ensure!(permit.is_some(), "the mutation permit is free");
+        let clean = ui
+            .start(JobSpec::Clean(CleanSpec {
+                scan_job: scan,
+                items,
+            }))
+            .await?;
+        match ui.call(Request::JobStatus { job: clean }).await? {
+            Ok(Response::JobStatus(status)) => {
+                ensure_eq!(status.state, JobState::Running, "queued job is running");
+                ensure_eq!(status.progress.phase, Phase::Starting, "while it waits");
+            }
+            other => return Err(format!("job_status answered {other:?}")),
+        }
+        ensure_eq!(
+            code(&ui.call(Request::JobResult { job: clean }).await?),
+            Some(ErrorCode::BadRequest),
+            "no result while running"
+        );
+        ensure_eq!(
+            code(&ui.call(Request::ReleaseJob { job: clean }).await?),
+            Some(ErrorCode::BadRequest),
+            "a running job cannot be released"
+        );
+        ensure_eq!(
+            ui.call(Request::CancelJob { job: clean }).await?,
+            Ok(Response::Unit),
+            "cancel is accepted"
+        );
+        let (_, state) = ui.job_end(clean).await?;
+        ensure_eq!(state, JobState::Cancelled, "the queued job ends cancelled");
+        ensure!(
+            root.join("keep.bin").exists(),
+            "a cancelled clean removed nothing"
+        );
+        ensure_eq!(
+            code(&ui.call(Request::JobResult { job: clean }).await?),
+            Some(ErrorCode::BadRequest),
+            "a job cancelled before work has no output"
+        );
+        ensure_eq!(
+            ui.call(Request::ReleaseJob { job: clean }).await?,
+            Ok(Response::Unit),
+            "a cancelled job can be released"
+        );
+        ensure_eq!(
+            code(&ui.call(Request::JobStatus { job: clean }).await?),
+            Some(ErrorCode::NotFound),
+            "released"
+        );
+        drop(permit);
+        let _ignored = std::fs::remove_dir_all(&root);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn invalid_job_requests_are_rejected() -> TestResult {
+        let engine = Engine::new();
+        let mut cli = Client::connect(&engine, ClientKind::Cli).await?;
+        ensure_eq!(
+            code(
+                &cli.call(Request::StartJob(JobSpec::Clean(CleanSpec {
+                    scan_job: 77,
+                    items: vec![0],
+                })))
+                .await?
+            ),
+            Some(ErrorCode::NotFound),
+            "clean of an unknown job"
+        );
+        ensure_eq!(
+            code(
+                &cli.call(Request::StartJob(JobSpec::Scan(ScanArea::SpaceLens {
+                    root: "relative/dir".to_owned(),
+                })))
+                .await?
+            ),
+            Some(ErrorCode::BadRequest),
+            "relative space-lens root"
+        );
+        let missing =
+            std::env::temp_dir().join(format!("omc-engine-missing-{}", std::process::id()));
+        ensure_eq!(
+            code(
+                &cli.call(Request::StartJob(JobSpec::Scan(ScanArea::SpaceLens {
+                    root: missing.display().to_string(),
+                })))
+                .await?
+            ),
+            Some(ErrorCode::BadRequest),
+            "missing space-lens root"
+        );
+        for req in [
+            Request::JobStatus { job: 5 },
+            Request::JobResult { job: 5 },
+            Request::CancelJob { job: 5 },
+            Request::ReleaseJob { job: 5 },
+            Request::SpaceChildren { job: 5, node: 0 },
+        ] {
+            ensure_eq!(
+                code(&cli.call(req.clone()).await?),
+                Some(ErrorCode::NotFound),
+                "{req:?} of an unknown job"
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn oldest_finished_jobs_are_evicted() -> TestResult {
+        let root = temp_dir("evict")?;
+        let engine = Engine::new();
+        let mut ui = Client::connect(&engine, ClientKind::Ui).await?;
+        let mut jobs = Vec::new();
+        for _ in 0..66 {
+            jobs.push(space_scan(&mut ui, &root).await?.0);
+        }
+        let [first, second, third, ..] = *jobs.as_slice() else {
+            return Err("66 jobs".to_owned());
+        };
+        for (job, gone, what) in [
+            (first, true, "oldest evicted"),
+            (second, true, "second oldest evicted"),
+            (third, false, "the newest 64 are kept"),
+        ] {
+            let answer = ui.call(Request::JobStatus { job }).await?;
+            ensure_eq!(
+                code(&answer) == Some(ErrorCode::NotFound),
+                gone,
+                "{what}: {answer:?}"
+            );
+        }
+        let _ignored = std::fs::remove_dir_all(&root);
         Ok(())
     }
 }

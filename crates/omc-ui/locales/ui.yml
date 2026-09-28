@@ -1,0 +1,8 @@
+_version: 2
+ui:
+  selected_of:
+    en: "%{selected} of %{total} selected"
+    zh-CN: "已选 %{selected} / %{total}"
+  items:
+    en: "%{count} items"
+    zh-CN: "%{count} 项"

@@ -9,8 +9,17 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod apps;
+pub mod files;
+pub mod jobs;
+pub mod junk;
+pub mod settings;
+
+use jobs::{ItemId, JobId, JobOutput, JobSpec, JobStatus, JobUpdate};
+use settings::{Settings, SystemInfo};
+
 /// Protocol version. Bump on any non-additive wire change (ADR 0008).
-pub const PROTOCOL: u32 = 1;
+pub const PROTOCOL: u32 = 2;
 
 /// Client → daemon frame.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,15 +53,21 @@ pub enum ServerFrame {
     },
 }
 
-/// What the daemon asks attached UIs to do (driven by the system tray, ADR 0020).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// What the daemon pushes to attached UIs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "e", rename_all = "snake_case")]
 pub enum Event {
-    /// Bring the main window to the front, reopening it if only other windows are left.
+    /// Bring the main window to the front, reopening it if only other windows are left
+    /// (tray, ADR 0020).
     Activate,
     /// The user quit oh-my-clear: the UI exits and must not respawn the daemon, which stops
     /// once every UI has detached.
     Quit,
+    /// A job made progress or finished. Progress updates are lossy (a lagging UI misses
+    /// some); after a reconnect the UI asks `job_status`.
+    Job(JobUpdate),
+    /// The stored settings changed (another UI window or process saved them).
+    SettingsChanged,
 }
 
 /// Requests. `hello`, `ping` and `shutdown` are the frozen meta subset: their shape never
@@ -69,6 +84,43 @@ pub enum Request {
     },
     /// Stops the daemon. Answered with [`Response::Unit`] before the daemon exits.
     Shutdown,
+    /// OS, permissions and volumes; answered with [`Response::SystemInfo`].
+    SystemInfo,
+    /// The stored settings; answered with [`Response::Settings`].
+    GetSettings,
+    /// Replaces and persists the settings; answered with [`Response::Unit`].
+    PutSettings(Settings),
+    /// Starts a job; answered at once with [`Response::Job`].
+    StartJob(JobSpec),
+    /// A job's current status; answered with [`Response::JobStatus`].
+    JobStatus {
+        /// The job.
+        job: JobId,
+    },
+    /// A finished job's output; answered with [`Response::JobResult`]. `bad_request`
+    /// while the job runs, `not_found` for unknown or released jobs.
+    JobResult {
+        /// The job.
+        job: JobId,
+    },
+    /// Asks a running job to stop; answered with [`Response::Unit`].
+    CancelJob {
+        /// The job.
+        job: JobId,
+    },
+    /// Frees a finished job's retained output; answered with [`Response::Unit`].
+    ReleaseJob {
+        /// The job.
+        job: JobId,
+    },
+    /// Children of a directory node of a finished `space_lens` job; answered with
+    /// [`Response::SpaceNodes`].
+    SpaceChildren {
+        /// The `space_lens` job.
+        job: JobId,
+        /// A directory node id (0 = root).
+        node: ItemId,
+    },
 }
 
 /// Successful responses.
@@ -84,6 +136,21 @@ pub enum Response {
     },
     /// Empty acknowledgement.
     Unit,
+    /// Answer to [`Request::SystemInfo`].
+    SystemInfo(SystemInfo),
+    /// Answer to [`Request::GetSettings`].
+    Settings(Settings),
+    /// Answer to [`Request::StartJob`].
+    Job {
+        /// The new job.
+        job: JobId,
+    },
+    /// Answer to [`Request::JobStatus`].
+    JobStatus(JobStatus),
+    /// Answer to [`Request::JobResult`].
+    JobResult(JobOutput),
+    /// Answer to [`Request::SpaceChildren`].
+    SpaceNodes(files::SpaceListing),
 }
 
 /// Handshake request.

@@ -3,16 +3,17 @@
 ## Project Overview
 oh-my-clear is a cross-platform system-cleaning desktop app (ADR 0017). Targets: macOS, Windows (MSVC), Linux, all first-class, built in Rust on gpui-kit (https://gpui-kit.com/llms.txt). The UI is the product's first principle: refined, keyboard-first, Apple-style spring motion (ADR 0011).
 
-Crates: `omc-telemetry` (tracing setup shared by both binaries), `omc-proto` (wire types: control frames, meta requests, daemon → UI events, errors), `omc-ipc` (runtime dir, lock, framing, token handshake, `EngineHandle` supervisor that spawns/reattaches/restarts the daemon, detached spawn, executable layout), `omc-engine` (the daemon's connection router and UI event broadcast), `omc-ui` (ADR 0013 foundation: theme, i18n, titlebar, settings window, actions, plus the main window (ADR 0019): collapsible sidebar of cleaning areas, area pages, status bar with the daemon connection). `oh-my-clear-daemon` serves `run` and `stop` and owns the system tray (ADR 0020).
+Crates: `omc-telemetry` (tracing setup shared by both binaries), `omc-proto` (wire types: control frames, meta requests, daemon → UI events, errors), `omc-ipc` (runtime dir, lock, framing, token handshake, `EngineHandle` supervisor that spawns/reattaches/restarts the daemon, detached spawn, executable layout), `omc-scan` (parallel walker, junk catalogues, space lens, large/old files, duplicates, deletion, removal guard), `omc-apps` (per-OS app inventory, related files/registry, uninstall, leftovers, startup items, removal executor, elevated helper), `omc-engine` (the daemon's connection router, job manager, settings store and UI event broadcast), `omc-ui` (ADR 0013 foundation: theme, i18n, titlebar, settings window, actions, plus the main window (ADR 0019): collapsible sidebar of cleaning areas, area pages, status bar with the daemon connection). `oh-my-clear-daemon` serves `run` and `stop` and owns the system tray (ADR 0020).
 
 ## Architecture & Data Flow
-Accepted architecture: ADR 0008 (process split, IPC, layering), 0011 (UI/motion), 0013 (theme, i18n, chrome), 0017 (product scope), 0020 (tray in the daemon).
+Accepted architecture: ADR 0008 (process split, IPC, layering), 0011 (UI/motion), 0013 (theme, i18n, chrome), 0017 (product scope), 0020 (tray in the daemon), 0021 (cleaning jobs, removal, elevation), 0022 (UI v2 components, control scale, scan store).
 - **Two processes.** `oh-my-clear-daemon` (tokio, never links gpui) owns the engine, all filesystem/system work and the system tray, and keeps running when the UI closes. `oh-my-clear` (gpui-kit) is a viewport: it auto-spawns/attaches to the daemon over local IPC (Unix socket / Windows named pipe, token-authenticated) and quits entirely with its last window; the tray's Open reactivates or relaunches it, the tray's Quit ends both.
 - **Tray (ADR 0020).** `host.rs` puts a tao event loop on the daemon's main thread on macOS/Windows (accessory app on macOS) and runs the daemon loop on tokio; Linux uses tray-icon's pure-Rust `ksni` backend (no GTK, no event loop). The tray only enqueues `TrayEvent`s; with a tray the daemon has no idle exit. On macOS the daemon lives in a helper bundle (`omc_ipc::layout`).
 - **Crates.** Allowed internal edges live in `LAYERS` (`xtask/src/layers.rs`), checked by `cargo xtask layers` (first step of `cargo ci`); `gpui-kit` is confined to omc-ui/apps/oh-my-clear, `tray-icon`/`tao` to oh-my-clear-daemon. The UI never depends on the engine. Declare an internal edge only when code uses it:
   - add `omc-x = { path = "crates/omc-x" }` to root `[workspace.dependencies]`;
   - add `omc-x.workspace = true` to the member (and allow it in `LAYERS` if new).
-- **Flow.** UI → `Request` (omc-ipc JSON control frame) → daemon `Engine` router → `Response` on the same connection → UI (`cx.notify` at most once per frame). The daemon pushes `Event`s (`activate`, `quit`) to `ui` clients unsolicited. A new daemon `epoch` means every client cache is stale.
+- **Flow.** UI → `Request` (omc-ipc JSON control frame) → daemon `Engine` router → `Response` on the same connection → UI (`cx.notify` at most once per frame). The daemon pushes `Event`s (`activate`, `quit`, `job` progress, `settings_changed`) to `ui` clients unsolicited. A new daemon `epoch` means every client cache is stale.
+- **Jobs (ADR 0021).** Scans, cleans, app inventory, uninstall and startup changes are daemon jobs: `start_job` → `job` events → `job_result` → `release_job`. Removal only takes item ids of a retained scan (never paths from the client), every path passes `omc_scan::Guard`, and admin-only items go to one `oh-my-clear-daemon elevated <manifest>` run. Platform code lives in `omc-apps/src/{macos,windows,linux}/`; Windows/Linux code is compile-checked here with `cargo clippy --target x86_64-pc-windows-msvc|x86_64-unknown-linux-gnu`. Settings are daemon-owned (`settings.toml`).
 - **Runtimes.** Daemon: one tokio runtime for all I/O. UI: GPUI executors for UI/state; a tokio runtime in a GPUI `Global` (`omc_ui::engine`) only for the IPC client. Its `tokio::sync` channel/oneshot futures are awaited directly in GPUI tasks.
 
 ## Key Directories
@@ -21,7 +22,7 @@ Accepted architecture: ADR 0008 (process split, IPC, layering), 0011 (UI/motion)
 - `assets/brand/`: logo sources (SVG). `render.sh` regenerates every derived raster (app icons, the in-app mark); commit its output.
 - `apps/oh-my-clear-daemon/`: the execution daemon (`run` (default) and `stop`) with the tray (`src/host.rs`, `src/tray.rs`, `src/ui.rs`).
   - `assets/`: tray icons rendered by `assets/brand/render.sh`; `locales/app.yml`: tray menu strings; `resources/`: the macOS helper-bundle `Info.plist` and the Windows `.rc` embedding the app icon (`build.rs`).
-- `crates/omc-*/`: library crates, one per area: proto, ipc, telemetry, engine, ui. The `crates/*` glob adds members automatically. Create new ones with `cargo new-crate <area> "<purpose>"`, then add them to `LAYERS`.
+- `crates/omc-*/`: library crates, one per area: proto, ipc, telemetry, scan, apps, engine, ui. The `crates/*` glob adds members automatically. Create new ones with `cargo new-crate <area> "<purpose>"`, then add them to `LAYERS`.
 - `xtask/`: std-only dev automation (`cargo xtask ci | layers | new-crate | omc`).
 - `.github/workflows/ci.yml`: the gates on macOS, Windows (MSVC) and Linux.
 - `.cargo/config.toml`: cargo aliases and dev env defaults (`RUST_LOG=info,omc=debug,oh_my_clear=debug`, `RUST_BACKTRACE=1`; a value set in your shell wins).
@@ -84,7 +85,7 @@ Aliases and other commands:
 - **Logging**: use `tracing` only. `println!`, `eprintln!`, and `dbg!` are denied.
 - **Formatting and naming**: `rustfmt.toml` sets style edition 2024. Crates are named `omc-<area>`; the binaries are `oh-my-clear` and `oh-my-clear-daemon`. Files and modules use snake_case.
 - **Unsafe**: `unsafe_code = "forbid"` in every crate (inherited `[workspace.lints]`, checked by `xtask layers`). Prefer safe wrappers gpui already brings; introducing `unsafe` needs a new ADR (ADR 0017).
-- **UI**: read `rule://ui-design-motion` before UI work: tokens only, springs from the `const` preset table, no layout animation, reduced motion, 4 ms/8 ms frame budgets.
+- **UI**: build screens from `omc_ui::ui` components (catalogue in `crates/omc-ui/src/ui/mod.rs`, ADR 0022); read `rule://ui-design-motion` before UI work: tokens only, springs from the `const` preset table, no layout animation, reduced motion, 4 ms/8 ms frame budgets.
 - **Daemon boundary**: work that must survive the UI runs in the daemon (no UI may be attached). Daemon stdout is protocol-only (`READY` line); logs go to stderr/files via omc-telemetry.
 
 ## Important Files

@@ -86,6 +86,8 @@ impl Engine {
                                 tracing::info!("quit from the tray");
                                 cx.defer(|cx| cx.quit());
                             }
+                            // Routed by the views that subscribe to the engine.
+                            ClientEvent::Daemon(Event::Job(_) | Event::SettingsChanged) => {}
                         }
                         cx.emit(event);
                     }
@@ -128,6 +130,27 @@ pub fn start(daemon_exe: PathBuf, cx: &mut App) {
 pub fn unavailable(reason: String, cx: &mut App) {
     let engine = cx.new(|_| Engine::failed(reason));
     cx.set_global(GlobalEngine(engine));
+}
+
+/// Quits oh-my-clear entirely: asks the attached daemon to stop (ending its tray too),
+/// then quits the UI. Without a connected daemon only the UI quits.
+pub(crate) fn quit_all(cx: &mut App) {
+    let handle = entity(cx)
+        .read(cx)
+        .handle()
+        .filter(|h| matches!(h.state(), ConnState::Connected { .. }))
+        .cloned();
+    let Some(handle) = handle else {
+        cx.quit();
+        return;
+    };
+    cx.spawn(async move |cx| {
+        if let Err(err) = handle.request(omc_proto::Request::Shutdown).await {
+            tracing::warn!("daemon shutdown request failed: {err}");
+        }
+        cx.update(|cx| cx.quit());
+    })
+    .detach();
 }
 
 /// The engine entity; installs an unavailable one when [`start`] was never called

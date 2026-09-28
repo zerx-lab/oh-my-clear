@@ -11,7 +11,7 @@
 //! Views read colours through `cx.theme()` and app-only switches through
 //! [`UiSettings::get`]; nothing caches a colour across renders.
 
-mod color;
+pub(crate) mod color;
 pub mod presets;
 
 use gpui_kit::base::ScrollbarMode;
@@ -63,15 +63,17 @@ impl Appearance {
     }
 }
 
-/// Corner treatment for every component. Radii follow the 4/6/8/12 scale (ADR 0011);
-/// `Square` removes rounding everywhere, including pills and avatars.
+/// Corner treatment for every component. Controls follow the 4/6/8 scale (ADR 0011) and
+/// cards the design spec's 10 px; `Square` removes rounding everywhere, including pills and
+/// avatars. Components derive nested radii from these two (badges and checkboxes use the
+/// control radius − 2, large buttons and icon tiles + 2).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CornerStyle {
     /// 0 px everywhere.
     Square,
     /// 4 px controls, 6 px surfaces.
     Compact,
-    /// 6 px controls, 8 px surfaces.
+    /// 6 px controls, 10 px surfaces.
     #[default]
     Standard,
     /// 8 px controls, 12 px surfaces.
@@ -102,7 +104,7 @@ impl CornerStyle {
         match self {
             Self::Square => (0., 0.),
             Self::Compact => (4., 6.),
-            Self::Standard => (6., 8.),
+            Self::Standard => (6., 10.),
             Self::Round => (8., 12.),
         }
     }
@@ -606,6 +608,93 @@ mod tests {
             Some(&ThemeMode::Dark),
             "default dark preset is bundled as a dark theme"
         );
+    }
+
+    #[test]
+    fn app_preset_is_the_default() {
+        let prefs = ThemePreferences::default();
+        assert_eq!(
+            prefs.light_theme.as_ref(),
+            "oh-my-clear Light",
+            "the app's own light preset is the default"
+        );
+        assert_eq!(
+            prefs.dark_theme.as_ref(),
+            "oh-my-clear Dark",
+            "the app's own dark preset is the default"
+        );
+        assert_eq!(
+            CornerStyle::default().radii(),
+            (6., 10.),
+            "controls 6 px, cards 10 px by default"
+        );
+    }
+
+    /// The default preset keeps text readable in both modes: body text ≥ 4.5:1 and
+    /// secondary text, tone labels and hairline-free accents ≥ 3:1 on every surface they
+    /// sit on. Read from the applied global theme, so JSON keys that fail to parse (and
+    /// fall back to gpui-kit's defaults) are caught too.
+    #[gpui_kit::test]
+    fn default_preset_meets_contrast_targets(cx: &mut gpui_kit::TestAppContext) {
+        let init = cx.update(crate::init);
+        assert!(init.is_ok(), "UI initialises headless: {init:?}");
+        for appearance in [Appearance::Light, Appearance::Dark] {
+            cx.update(|cx| UiSettings::update(cx, |s| s.theme.appearance = appearance));
+            let pairs = cx.update(|cx| {
+                let t = cx.theme();
+                let name = t.theme_name().to_string();
+                let body = [
+                    ("text/background", t.foreground, t.background),
+                    ("text/card", t.foreground, t.group_box),
+                    ("text/muted", t.foreground, t.muted),
+                    ("text/popover", t.popover_foreground, t.popover),
+                    ("text/sidebar", t.sidebar_foreground, t.sidebar),
+                    (
+                        "text/sidebar selection",
+                        t.sidebar_foreground,
+                        t.sidebar_accent,
+                    ),
+                    ("text/secondary", t.secondary_foreground, t.secondary),
+                    (
+                        "text/secondary hover",
+                        t.secondary_foreground,
+                        t.secondary_hover,
+                    ),
+                    ("primary label", t.primary_foreground, t.primary),
+                    ("primary label hover", t.primary_foreground, t.primary_hover),
+                    (
+                        "primary label active",
+                        t.primary_foreground,
+                        t.primary_active,
+                    ),
+                    ("danger label", t.button_danger_foreground, t.button_danger),
+                    ("danger tone label", t.danger_foreground, t.danger),
+                ];
+                let secondary = [
+                    ("muted text/background", t.muted_foreground, t.background),
+                    ("muted text/card", t.muted_foreground, t.group_box),
+                    ("muted text/muted", t.muted_foreground, t.muted),
+                    ("muted text/sidebar", t.muted_foreground, t.sidebar),
+                    ("success/card", t.success, t.group_box),
+                    ("warning/card", t.warning, t.group_box),
+                    ("danger/card", t.danger, t.group_box),
+                    ("info/card", t.info, t.group_box),
+                    ("accent/card", t.primary, t.group_box),
+                ];
+                (name, body, secondary)
+            });
+            let (name, body, secondary) = pairs;
+            assert!(
+                name.starts_with("oh-my-clear"),
+                "{appearance:?} applies the app preset, got {name}"
+            );
+            for (min, set) in [(4.5, &body[..]), (3., &secondary[..])] {
+                for (label, fg, bg) in set {
+                    let ratio = color::contrast(*fg, *bg);
+                    assert!(ratio >= min, "{name} {label}: contrast {ratio:.2} < {min}");
+                }
+            }
+        }
     }
 
     #[test]

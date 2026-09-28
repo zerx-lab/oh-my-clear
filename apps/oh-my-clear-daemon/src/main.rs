@@ -10,10 +10,15 @@
 //!   Linux) it also exits after 10 minutes without any client. SIGHUP is ignored so closing
 //!   a terminal does not stop it.
 //! - `stop`: asks a running daemon to shut down; exits 0 when none is running.
+//! - `elevated <manifest>`: the administrator helper the daemon starts through the OS
+//!   prompt (`osascript`, `pkexec`, UAC) to remove items that need administrator rights.
+//!   No tray, lock or IPC; logs to stderr; exit code 0 when the result file was written.
 //!
 //! Modules: [`serve`] (the daemon loop), [`host`] (the main thread: event loop + tray
 //! lifetime), [`tray`] (icon, menu, events), [`ui`] (launching / activating the GUI).
 
+use std::ffi::OsString;
+use std::path::Path;
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -31,7 +36,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 /// Grace period for in-flight tasks once the daemon decided to exit.
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
 
-const USAGE: &str = "usage: oh-my-clear-daemon [run|stop]";
+const USAGE: &str = "usage: oh-my-clear-daemon [run|stop|elevated <manifest>]";
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
@@ -59,17 +64,22 @@ fn main() -> ExitCode {
         report_startup_error(&err);
         return ExitCode::FAILURE;
     }
-    let mut args = std::env::args().skip(1);
-    let command = args.next();
-    if let Some(extra) = args.next() {
-        tracing::error!(%extra, "unexpected argument; {USAGE}");
-        return ExitCode::from(2);
-    }
-    let run = match command.as_deref() {
-        None | Some("run") => true,
-        Some("stop") => false,
-        Some(other) => {
-            tracing::error!(command = other, "unknown subcommand; {USAGE}");
+    let args: Vec<OsString> = std::env::args_os().skip(1).collect();
+    let run = match args.as_slice() {
+        [] => true,
+        [command] if command == "run" => true,
+        [command] if command == "stop" => false,
+        [command, manifest] if command == "elevated" => return elevated(Path::new(manifest)),
+        [command] if command == "elevated" => {
+            tracing::error!("missing manifest path; {USAGE}");
+            return ExitCode::from(2);
+        }
+        [command, .., extra] if command == "run" || command == "stop" || command == "elevated" => {
+            tracing::error!(extra = %extra.to_string_lossy(), "unexpected argument; {USAGE}");
+            return ExitCode::from(2);
+        }
+        [command, ..] => {
+            tracing::error!(command = %command.to_string_lossy(), "unknown subcommand; {USAGE}");
             return ExitCode::from(2);
         }
     };
@@ -95,6 +105,17 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             tracing::error!(%err, "oh-my-clear-daemon failed");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// `elevated <manifest>`: runs as administrator/root, removes what the manifest lists.
+fn elevated(manifest: &Path) -> ExitCode {
+    match omc_apps::serve_elevated(manifest) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            tracing::error!(%err, manifest = %manifest.display(), "elevated helper failed");
             ExitCode::FAILURE
         }
     }

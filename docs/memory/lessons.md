@@ -1,6 +1,104 @@
 # Lessons learned
 <!-- Newest first. ≤40 active entries. Grep by tag. Promote when hits ≥ 2. Delete (git keeps history) when obsolete. Template: skill://memory -->
 
+## L-0038 A PATH command can be the app's own shim: check scripts before treating a same-named CLI as a rival
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [uninstall, macos, attribution]
+- trigger: judging whether `~/.config/<n>` belongs to an app when a `<n>` command exists outside the bundle
+- lesson: apps install CLIs as small `#!` scripts that `exec` into the bundle (`/opt/homebrew/bin/ghostex` → `Ghostex.app/Contents/Resources/CLI/ghostex`), not only as symlinks; a script referencing the bundle path counts for the app. Only a real foreign command (e.g. the `claude` CLI in `~/.local/bin`) lowers confidence.
+- evidence: smoke of `app_files(Ghostex)` gave Low for `~/.config/ghostex` before the fix; `cat /opt/homebrew/bin/ghostex` (2026-09-28)
+
+## L-0037 GPUI clicks bubble: an inner control inside a clickable row must `stop_propagation`
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [gpui, ui, interaction]
+- trigger: a checkbox, chevron or button inside a clickable row/header/tile
+- lesson: mouse-up click handlers run inner → outer and neither gpui-base Button/Checkbox nor gpui-component's Checkbox (only `prevent_default`) stops it, so a chevron button plus a row handler toggled twice (collapse did nothing). Give a row exactly one handler and call `cx.stop_propagation()` in inner handlers (`ui::Checkbox` does); cover it with a one-click-toggles-once test.
+- evidence: gpui-pre-0.3.7 `elements/div.rs` mouse-up dispatch; `crates/omc-ui/src/ui/collapsible.rs` and its tests (2026-09-28)
+
+## L-0036 `uniform_list` rows must share one height; `Input::h` is multi-line only
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [gpui, ui]
+- trigger: mixing group headers and item rows in a virtual list; sizing a single-line text input
+- lesson: `uniform_list` measures one row and assumes all match, so a 32 px header among 40 px rows must be wrapped to 40 px. For a single-line gpui-component `Input`, height comes from `Styled::h` applied after its own sizing (`Input::h` sets the multi-line height). gpui-kit also has two different `IconName` types (assets vs component): components take `impl Into<Icon>`.
+- evidence: `crates/omc-ui/src/ui/input.rs`, `pages/junk.rs` header wrapper (2026-09-28)
+
+## L-0035 macOS attribution: executable names are weak evidence; don't read other apps' containers
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [macos, apps, uninstall]
+- trigger: matching Library items to an app in `omc-apps/src/macos/attribution.rs`
+- lesson: helper bundles reuse executable names (`Claude Code URL Handler.app` has `CFBundleExecutable=claude`), so the executable only adds weight on top of stronger evidence; vendor folders (`Application Support/Google`) hold several products — attribute only `<vendor>/<product>`; sibling ids (`.canary`, `.for.testing`, `.pro`) belong to other products. Reading inside `~/Library/Containers/*` for corroboration triggers macOS 14's "access data from other apps" prompt — match names only. `lsof` prints `/private/var/…`, `getconf` `/var/…`: normalize before prefix checks. Run `codesign`/System Events lookups in parallel (≈0.5 s / 0.27 s each).
+- evidence: MacUninstall smoke on real apps (Chrome, Xcode, Claude); `macos/files.rs` `unprivate` (2026-09-28)
+
+## L-0034 rustfmt on a `mod.rs` also formats its child modules
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 2 · status: active
+- tags: [tooling, agents]
+- trigger: formatting only your own files while other agents edit siblings
+- lesson: `rustfmt <path>/mod.rs` (or `main.rs`) follows `mod` declarations and rewrites child files other agents own (`skip_children` is unstable); format leaf files explicitly, or run `cargo fmt --all` once at integration.
+- evidence: Removal (daemon main.rs → serve.rs/host.rs) and ScanState (pages/mod.rs → widgets/*) reports (2026-09-28)
+
+## L-0033 macOS: opening another app's sandbox container can hang 5–6 s and fail with EINTR
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [macos, scanning, performance]
+- trigger: scanning inside `~/Library/Containers` / `~/Library/Group Containers` (junk caches, app files, space lens)
+- lesson: `open()` of a folder in another app's container sometimes blocks in the kernel for 5.0–6.0 s, then returns errno 4 (an immediate retry works); one such call held a whole parallel scan (System Junk 5–6 s instead of ~0.1 s). Junk scanning skips empty APFS folders without opening them (size 64, nlink 2) and walks container candidates on detached threads it waits for only 300 ms. Other walks that cross containers can still see one 5 s stall per hit.
+- evidence: `sample` of the stalled pool thread in `__open_nocancel` from `read_dir`; plain parallel `fs::read_dir` of 742 container Caches folders stalled in ~1 of 4 runs; `crates/omc-scan/src/junk/measure.rs` (2026-09-28)
+
+## L-0032 Filesystem tests that clean must set both delete methods to Permanent
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [testing, scanning]
+- trigger: a test that runs a clean/uninstall job or `omc_apps::remove` on temp files
+- lesson: `CleanSettings::default()` sends user files to the Trash (`files_delete = Trash`), so a test using defaults moves fixtures into the developer's real Trash. Put `Permanent` for `files_delete` and `junk_delete` (engine tests: through `PutSettings`) and remove every temp dir, also on early returns.
+- evidence: omc-proto `settings.rs` `CleanSettings::default`; omc-engine tests; stale `$TMPDIR/omc-*` fixtures showed up in a real System Junk scan (2026-09-28)
+
+## L-0031 The elevated helper gets root's environment: pass HOME and absolute exclusions in
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [security, macos, linux, elevation]
+- trigger: code that runs inside `oh-my-clear-daemon elevated` (osascript `with administrator privileges`, pkexec)
+- lesson: neither mechanism keeps the invoking user's `HOME`, and `Guard::new` derives its essential folders from `HOME`; the helper is started with `HOME=<user home>` (sh prefix / `/usr/bin/env`) and the manifest carries exclusions already expanded to absolute paths. Anything else read from the environment there is root's.
+- evidence: `crates/omc-apps/src/elevate.rs` (helper command, manifest), `omc_scan::paths::home` (2026-09-28)
+
+## L-0030 Windows platform quirks: `Key` is `!Send`, HRESULT error codes, localized `schtasks`, PowerShell encoding
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [windows, registry, apps]
+- trigger: registry or tool calls in `omc-apps/src/windows/`
+- lesson: `windows_registry::Key` wraps a raw HKEY (not `Send`/`Sync`): parallel scans reopen keys per thread from a `Copy` hive enum. Its errors turned into `io::Error` carry the HRESULT (0x8007xxxx), so compare `err.code()` with HRESULT_FROM_WIN32(2/3/5), never `io::ErrorKind`. List scheduled tasks with `Get-ScheduledTask | ConvertTo-Json` (trigger CIM class names), not `schtasks /query /fo csv` (translated headers). PowerShell scripts set `[Console]::OutputEncoding=UTF8` first. `Clear-RecycleBin` throws on an empty bin (treat as success).
+- evidence: `crates/omc-apps/src/windows/{known,reg,tasks,system}.rs`; windows-registry-0.6.1 `key.rs` (2026-09-28)
+
+## L-0029 macOS app inventory: batch `mdls` for sizes/last use, follow `.app` symlinks, match ids exactly
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [macos, apps, performance]
+- trigger: listing apps or attributing Library files to an app
+- lesson: one `mdls -name kMDItemPhysicalSize -name kMDItemLastUsedDate -raw <all bundles>` (NUL-separated, `(null)` for unset) replaces a walk per bundle (54 apps: 3.6 s → 0.2 s, sizes identical). `/Applications/Safari.app` is a symlink into `/System/Cryptexes/App`. Only the exact bundle id or one extra component is High confidence (`com.google.Chrome` must not claim `com.google.chrome.for.testing`); `pkgutil --file-info <bundle>` gives the installing pkg id, Homebrew's `INSTALL_RECEIPT.json` the cask's app name and zap paths.
+- evidence: `crates/omc-apps/src/macos/{inventory,ident,files}.rs`; smoke run of `list_apps`/`app_files` (2026-09-28)
+
+## L-0028 Never lock a shared mutex per file in a parallel walk
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 2 · status: active
+- tags: [scanning, performance, rayon]
+- trigger: writing a `walk::Visitor` or anything called per file from the walker's pool
+- lesson: a `Mutex` taken per file serializes the pool: `Walker::measure`'s summer was mutex-bound (junk measurement 2–4× faster lock-free), and a global hard-link `Mutex<HashSet>` cost ~15% of a `/` walk (306k files with nlink > 1). Use atomics or per-thread buffers merged at the end, and shard any shared set. Also: rayon `for_each_init` runs init per split job, not per thread.
+- evidence: `crates/omc-scan/src/walk.rs` `Summer` (atomics), `space.rs` sharded link set, ScanJunk/ScanFiles timings (2026-09-28)
+
+## L-0027 `#[cfg(all(test, unix))] mod tests` fails `tests_outside_test_module`; gate the fn instead
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 2 · status: active
+- tags: [clippy, testing, cross-platform]
+- trigger: a test module that only applies to some OSes
+- lesson: clippy only recognizes a plain `#[cfg(test)] mod tests`; put `#[cfg(unix)]` (etc.) on the test functions and move their `use super::*` inside them so other targets see no unused import.
+- evidence: `crates/omc-apps/src/cmd.rs` tests; `cargo clippy --all-targets` on host and `x86_64-unknown-linux-gnu` (2026-09-28)
+
+## L-0026 Check Windows/Linux code from macOS with `cargo clippy --target …`; linking is not possible
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [cross-platform, build]
+- trigger: changing `cfg(windows)` / Linux-only code on the macOS development host
+- lesson: `x86_64-pc-windows-msvc` and `x86_64-unknown-linux-gnu` are installed; `cargo clippy -p omc-proto -p omc-scan -p omc-apps -p omc-engine --all-targets --target <t> -- -D warnings` type-checks and lints that code (tests included). omc-ui cannot be checked for Linux here (wayland-backend's build script needs `x86_64-linux-gnu-gcc`). Such code only runs in CI on its OS; keep parsers pure so their tests carry the behaviour.
+- evidence: cross-target clippy runs of omc-apps/omc-scan/omc-engine; UiScanPages report on the Linux omc-ui failure (2026-09-28)
+
+## L-0025 `trash` on Windows needs a `coinit_*` feature
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [deps, windows]
+- trigger: depending on `trash` with `default-features = false`
+- lesson: without `coinit_apartmentthreaded` or `coinit_multithreaded` the crate fails to compile on Windows on purpose; the daemon uses `coinit_multithreaded` (blocking threads are not STA).
+- evidence: trash-5.2.9 `src/windows.rs:323` compile error on `--target x86_64-pc-windows-msvc` (2026-09-28)
+
 ## L-0024 cargo-deny unions targets: a platform-gated dependency drags in its other platforms' deps
 - date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
 - tags: [deps, deny]
@@ -44,7 +142,7 @@
 - evidence: gpui-base-0.7.0 `src/resizable/{mod,panel}.rs` (2026-09-28)
 
 ## L-0017 Icons outside the default set need `omc_ui::assets::Assets`: `gpui_kit::assets::Assets` bundles only 104
-- date: 2026-09-28 · verified: 2026-09-28 · hits: 2 · status: active
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 3 · status: active
 - tags: [gpui, assets]
 - trigger: picking an icon for a view
 - lesson: `gpui_kit::assets::Assets` embeds the 104 icons of `default-icons.txt` (`AllAssets` has all of Lucide). Other `gpui_kit_assets::IconName` variants compile but render nothing at runtime. Use `gpui_kit::component::IconName` when it has the icon; otherwise add the variant to `icon_assets!` in `crates/omc-ui/src/assets.rs` (the app's source, layered over the default set) and keep it covered by a load test.

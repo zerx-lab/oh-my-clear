@@ -1,0 +1,540 @@
+_version: 2
+scan:
+  restarted:
+    en: The cleaning service restarted, so the scan was lost. Scan again.
+    zh-CN: 清理服务已重启，扫描结果已丢失，请重新扫描。
+  disconnected:
+    title:
+      en: Not connected to the cleaning service
+      zh-CN: 未连接到清理服务
+    body:
+      en: oh-my-clear is starting or reconnecting to its background service. Scans become available once it answers.
+      zh-CN: oh-my-clear 正在启动或重新连接后台服务，连接后即可扫描。
+  error:
+    en: Something went wrong
+    zh-CN: 出错了
+  dismiss:
+    en: Dismiss
+    zh-CN: 关闭
+  cancel:
+    en: Cancel
+    zh-CN: 取消
+  scan:
+    en: Scan
+    zh-CN: 扫描
+  rescan:
+    en: Scan again
+    zh-CN: 重新扫描
+  progress:
+    counted:
+      en: "%{done} of %{total} · %{bytes}"
+      zh-CN: "%{done} / %{total} · %{bytes}"
+    found:
+      en: "%{items} items checked · %{bytes} found"
+      zh-CN: "已检查 %{items} 项 · 发现 %{bytes}"
+  phase:
+    starting:
+      en: Starting…
+      zh-CN: 正在准备…
+    scanning:
+      en: Scanning…
+      zh-CN: 正在扫描…
+    measuring:
+      en: Measuring sizes…
+      zh-CN: 正在计算大小…
+    hashing:
+      en: Comparing contents…
+      zh-CN: 正在比较内容…
+    quitting:
+      en: Waiting for the app to quit…
+      zh-CN: 正在等待应用退出…
+    uninstalling:
+      en: Running the uninstaller…
+      zh-CN: 正在运行卸载程序…
+    elevating:
+      en: Waiting for administrator approval…
+      zh-CN: 正在等待管理员授权…
+    removing:
+      en: Removing…
+      zh-CN: 正在删除…
+    finishing:
+      en: Finishing…
+      zh-CN: 正在完成…
+  select_all:
+    en: All
+    zh-CN: 全选
+  select_none:
+    en: None
+    zh-CN: 全不选
+  truncated:
+    en: Only the largest results are listed.
+    zh-CN: 仅列出最大的结果。
+clean:
+  confirm:
+    title:
+      en: "Remove %{count} items (%{bytes})?"
+      zh-CN: "删除 %{count} 项（%{bytes}）？"
+    method_junk:
+      en: Items are removed the way your settings choose for junk (permanently by default). Apps recreate caches and logs as needed.
+      zh-CN: 将按设置中对垃圾文件的删除方式处理（默认永久删除）。应用会在需要时重新生成缓存和日志。
+    method_files:
+      en: Files are removed the way your settings choose for your own files (moved to the Trash by default).
+      zh-CN: 将按设置中对个人文件的删除方式处理（默认移到废纸篓）。
+    permanent:
+      en: They are deleted permanently and cannot be restored.
+      zh-CN: 它们将被永久删除，无法恢复。
+    trash:
+      en: They are moved to the Trash, so you can restore them until you empty it.
+      zh-CN: 它们将被移到废纸篓，清空废纸篓之前都可以恢复。
+    ok:
+      en: Remove
+      zh-CN: 删除
+    cancel:
+      en: Cancel
+      zh-CN: 取消
+  done:
+    title:
+      en: "Freed %{bytes}"
+      zh-CN: "已释放 %{bytes}"
+    body:
+      en: "%{removed} items removed, %{failed} could not be removed."
+      zh-CN: "已删除 %{removed} 项，%{failed} 项无法删除。"
+  back:
+    en: Back to results
+    zh-CN: 返回结果
+  stat:
+    freed:
+      en: Freed
+      zh-CN: 已释放
+    removed:
+      en: Removed
+      zh-CN: 已删除
+    failed:
+      en: Not removed
+      zh-CN: 未删除
+  more:
+    en: "and %{n} more"
+    zh-CN: "以及另外 %{n} 项"
+  reason:
+    permission_denied:
+      en: Needs administrator rights
+      zh-CN: 需要管理员权限
+    full_disk_access:
+      en: Needs Full Disk Access
+      zh-CN: 需要“完全磁盘访问权限”
+    app_management:
+      en: Needs App Management
+      zh-CN: 需要“App 管理”权限
+    in_use:
+      en: In use
+      zh-CN: 正在使用
+    protected:
+      en: Protected
+      zh-CN: 受保护
+    elevation_cancelled:
+      en: Administrator prompt cancelled
+      zh-CN: 已取消管理员授权
+    trash_unavailable:
+      en: Trash unavailable
+      zh-CN: 废纸篓不可用
+    other:
+      en: Other errors
+      zh-CN: 其他错误
+  hint:
+    permission_denied:
+      en: Turn on administrator prompts in Settings to remove these, or remove them yourself.
+      zh-CN: 在设置中开启管理员授权提示后即可删除，或手动删除。
+    full_disk_access:
+      en: Give oh-my-clear Full Disk Access in System Settings › Privacy & Security, then scan again.
+      zh-CN: 请在“系统设置 › 隐私与安全性”中为 oh-my-clear 开启“完全磁盘访问权限”，然后重新扫描。
+    app_management:
+      en: Allow oh-my-clear to manage apps in System Settings › Privacy & Security › App Management.
+      zh-CN: 请在“系统设置 › 隐私与安全性 › App 管理”中允许 oh-my-clear。
+    in_use:
+      en: A running program holds these files. Quit it and try again.
+      zh-CN: 有程序正在使用这些文件，请退出该程序后重试。
+    protected:
+      en: System locations and your exclusions are never removed.
+      zh-CN: 系统位置和你排除的路径永远不会被删除。
+    elevation_cancelled:
+      en: The administrator prompt was dismissed. Clean again to retry.
+      zh-CN: 管理员授权窗口被关闭，请重新清理以重试。
+    trash_unavailable:
+      en: This volume has no Trash. Choose permanent deletion for user files in Settings to remove them.
+      zh-CN: 该磁盘没有废纸篓。可在设置中将个人文件改为永久删除。
+    other:
+      en: The system refused for another reason; details are in the log.
+      zh-CN: 系统因其他原因拒绝了操作，详情见日志。
+perm:
+  fda:
+    title:
+      en: Full Disk Access is off
+      zh-CN: 未开启“完全磁盘访问权限”
+    body:
+      en: Without it, macOS hides caches, logs and mail data of other apps from the scan. Grant it to oh-my-clear in System Settings › Privacy & Security.
+      zh-CN: 没有该权限时，macOS 会对扫描隐藏其他应用的缓存、日志和邮件数据。请在“系统设置 › 隐私与安全性”中为 oh-my-clear 开启。
+  open_full_disk_access:
+    en: Open Privacy Settings
+    zh-CN: 打开隐私设置
+  open_app_management:
+    en: Open App Management
+    zh-CN: 打开“App 管理”
+  denied:
+    title:
+      en: Some places could not be scanned
+      zh-CN: 部分位置无法扫描
+    body:
+      en: "%{count} locations were not readable (e.g. %{path})."
+      zh-CN: "有 %{count} 个位置无法读取（例如 %{path}）。"
+junk:
+  idle:
+    title:
+      en: What this scan looks at
+      zh-CN: 扫描范围
+  empty:
+    title:
+      en: Nothing to clean
+      zh-CN: 没有可清理的内容
+    body:
+      en: This area is already tidy.
+      zh-CN: 这个区域已经很整洁了。
+  found:
+    en: Found
+    zh-CN: 已发现
+  selected_size:
+    en: Selected
+    zh-CN: 已选择
+  select_safe:
+    en: Safe only
+    zh-CN: 仅安全项
+  clean:
+    en: "Clean %{count} items"
+    zh-CN: "清理 %{count} 项"
+  clean_size:
+    en: "Clean %{count} items · %{bytes}"
+    zh-CN: "清理 %{count} 项 · %{bytes}"
+  badge:
+    review:
+      en: Review
+      zh-CN: 请确认
+    admin:
+      en: Admin
+      zh-CN: 需管理员
+    running:
+      en: App running
+      zh-CN: 应用运行中
+  kind:
+    user_cache:
+      en: App caches
+      zh-CN: 应用缓存
+    system_cache:
+      en: System caches
+      zh-CN: 系统缓存
+    user_log:
+      en: App logs
+      zh-CN: 应用日志
+    system_log:
+      en: System logs
+      zh-CN: 系统日志
+    crash_report:
+      en: Crash reports
+      zh-CN: 崩溃报告
+    temp_files:
+      en: Temporary files
+      zh-CN: 临时文件
+    thumbnails:
+      en: Thumbnail caches
+      zh-CN: 缩略图缓存
+    update_cache:
+      en: Installed updates
+      zh-CN: 已安装的更新
+    package_cache:
+      en: Package manager caches
+      zh-CN: 软件包管理器缓存
+    error_reports:
+      en: Error reports and dumps
+      zh-CN: 错误报告与转储
+    shader_cache:
+      en: Shader caches
+      zh-CN: 着色器缓存
+    mail_downloads:
+      en: Mail downloads
+      zh-CN: 邮件附件下载
+    device_backups:
+      en: Device backups and firmware
+      zh-CN: 设备备份与固件
+    old_os_install:
+      en: Previous system installation
+      zh-CN: 旧的系统安装
+    xcode:
+      en: Xcode
+      zh-CN: Xcode
+    dev_package_cache:
+      en: Package caches
+      zh-CN: 包缓存
+    project_artifacts:
+      en: Project build output
+      zh-CN: 项目构建产物
+    ide_cache:
+      en: IDE caches
+      zh-CN: IDE 缓存
+    tool_cache:
+      en: Container and VM caches
+      zh-CN: 容器与虚拟机缓存
+    trash:
+      en: Trash
+      zh-CN: 废纸篓
+    disk_image:
+      en: Disk images
+      zh-CN: 磁盘映像
+    installer_package:
+      en: Installer packages
+      zh-CN: 安装包
+    setup_program:
+      en: Setup programs
+      zh-CN: 安装程序
+    orphan_files:
+      en: Files of removed apps
+      zh-CN: 已删除应用的文件
+    orphan_launch_items:
+      en: Orphaned launch items
+      zh-CN: 失效的启动项
+    broken_uninstall_entries:
+      en: Broken uninstall entries
+      zh-CN: 失效的卸载条目
+    broken_shortcuts:
+      en: Broken shortcuts
+      zh-CN: 失效的快捷方式
+    orphan_registry:
+      en: Registry keys of removed software
+      zh-CN: 已删除软件的注册表项
+  tag:
+    cache:
+      en: Cache
+      zh-CN: 缓存
+    code_cache:
+      en: Code cache
+      zh-CN: 代码缓存
+    gpu_cache:
+      en: GPU cache
+      zh-CN: GPU 缓存
+    service_worker:
+      en: Service workers
+      zh-CN: Service Worker
+    cookies:
+      en: Cookies (signs you out)
+      zh-CN: Cookie（会退出登录）
+    history:
+      en: History
+      zh-CN: 历史记录
+    site_data:
+      en: Site data (signs you out)
+      zh-CN: 网站数据（会退出登录）
+    sessions:
+      en: Open tabs
+      zh-CN: 已打开的标签页
+    logs:
+      en: Logs
+      zh-CN: 日志
+    crashes:
+      en: Crash reports
+      zh-CN: 崩溃报告
+    temp:
+      en: Temporary
+      zh-CN: 临时
+    node_modules:
+      en: node_modules
+      zh-CN: node_modules
+    build_output:
+      en: Build output
+      zh-CN: 构建产物
+    python_env:
+      en: Python environment
+      zh-CN: Python 环境
+    packages:
+      en: Packages
+      zh-CN: 软件包
+    simulator:
+      en: Simulator data
+      zh-CN: 模拟器数据
+    archives:
+      en: Archives
+      zh-CN: 归档
+    device_support:
+      en: Device support
+      zh-CN: 设备支持文件
+    download:
+      en: Download
+      zh-CN: 下载的文件
+overview:
+  elevated:
+    en: Administrator
+    zh-CN: 管理员
+  info_failed:
+    en: System information is unavailable
+    zh-CN: 无法获取系统信息
+  volume_usage:
+    en: "%{used} used · %{free} free of %{total}"
+    zh-CN: "已用 %{used} · 可用 %{free}，共 %{total}"
+  smart_title:
+    en: Smart Scan
+    zh-CN: 智能扫描
+  smart_body:
+    en: Scans system junk, browser data, developer junk, the Trash and installers at once. Nothing is removed until you confirm.
+    zh-CN: 一次扫描系统垃圾、浏览器数据、开发垃圾、废纸篓和安装包。确认之前不会删除任何内容。
+  smart_scan:
+    en: Smart Scan
+    zh-CN: 智能扫描
+  clean_safe:
+    en: Clean safe items
+    zh-CN: 清理安全项
+  safe_total:
+    en: Safe to clean
+    zh-CN: 可安全清理
+  safe_names_separator:
+    en: ", "
+    zh-CN: "、"
+  safe_names_more:
+    en: "%{names} and more"
+    zh-CN: "%{names} 等"
+  card:
+    not_scanned:
+      en: Not scanned yet
+      zh-CN: 尚未扫描
+    failed:
+      en: Scan failed
+      zh-CN: 扫描失败
+space:
+  root_placeholder:
+    en: Folder to measure (empty = your home folder)
+    zh-CN: 要分析的文件夹（留空 = 个人文件夹）
+  home:
+    en: Home
+    zh-CN: 个人文件夹
+  back:
+    en: Up one level
+    zh-CN: 返回上一级
+  rest:
+    en: "%{n} small files"
+    zh-CN: "%{n} 个小文件"
+  size:
+    en: Size
+    zh-CN: 大小
+  files:
+    en: Files
+    zh-CN: 文件数
+  open_failed:
+    en: This folder could not be opened
+    zh-CN: 无法打开此文件夹
+  loading:
+    en: Opening…
+    zh-CN: 正在打开…
+  empty:
+    en: This folder is empty
+    zh-CN: 此文件夹为空
+files:
+  empty:
+    title:
+      en: No large or old files found
+      zh-CN: 没有找到大文件或旧文件
+    body:
+      en: Nothing matched the size and age thresholds in Settings.
+      zh-CN: 没有文件达到设置中的大小或时间阈值。
+  select_listed:
+    en: Select listed
+    zh-CN: 选择列出的文件
+  filter:
+    all:
+      en: All
+      zh-CN: 全部
+    large:
+      en: Large
+      zh-CN: 大文件
+    old:
+      en: Old
+      zh-CN: 旧文件
+  sort:
+    label:
+      en: Sort
+      zh-CN: 排序
+    size:
+      en: Size
+      zh-CN: 大小
+    age:
+      en: Age
+      zh-CN: 时间
+    name:
+      en: Name
+      zh-CN: 名称
+  col:
+    modified:
+      en: Modified
+      zh-CN: 修改时间
+    accessed:
+      en: Last opened
+      zh-CN: 上次打开
+    size:
+      en: Size
+      zh-CN: 大小
+  kind:
+    video:
+      en: Videos
+      zh-CN: 视频
+    audio:
+      en: Audio
+      zh-CN: 音频
+    image:
+      en: Images
+      zh-CN: 图片
+    archive:
+      en: Archives
+      zh-CN: 压缩包
+    disk_image:
+      en: Disk images
+      zh-CN: 磁盘映像
+    document:
+      en: Documents
+      zh-CN: 文档
+    virtual_machine:
+      en: Virtual machines
+      zh-CN: 虚拟机
+    other:
+      en: Other
+      zh-CN: 其他
+dupes:
+  group:
+    en: "%{count} copies · %{bytes} each"
+    zh-CN: "%{count} 个副本 · 每个 %{bytes}"
+  wasted_total:
+    en: Wasted space
+    zh-CN: 浪费的空间
+  kept:
+    en: Kept
+    zh-CN: 保留
+  auto:
+    en: Select automatically
+    zh-CN: 自动选择
+  keep:
+    oldest:
+      en: Keep oldest
+      zh-CN: 保留最早的
+    newest:
+      en: Keep newest
+      zh-CN: 保留最新的
+    shortest:
+      en: Keep shortest path
+      zh-CN: 保留路径最短的
+  keep_one:
+    title:
+      en: One copy always stays
+      zh-CN: 每组至少保留一个副本
+    body:
+      en: Deselect another copy of this group first if you want to remove this one.
+      zh-CN: 如需删除这个副本，请先取消选择同组的另一个副本。
+  empty:
+    title:
+      en: No duplicates found
+      zh-CN: 没有发现重复文件
+    body:
+      en: No two files above the minimum size have the same content.
+      zh-CN: 没有两个超过最小大小的文件内容相同。

@@ -26,6 +26,9 @@ Memory records development rules and their reasons — never progress, milestone
 - 0017 Product = oh-my-clear, a cross-platform (macOS/Windows/Linux) system cleaner; agent-orchestration scope, crates and ADRs removed; `omc-*` crates, no `unsafe` crate (accepted)
 - 0019 Main window: bare transparent titlebar (window chrome only) over a full-height sidebar of cleaning areas (`nav::NAV`), spring-collapsed off-canvas, settings in its footer (accepted; amends 0013 chrome)
 - 0020 System tray in the daemon: tray-icon (+ tao event loop on macOS/Windows, pure-Rust ksni on Linux), `CONFINED` to the daemon; UI exits with its last window, tray Open/Quit via pushed `Event`s; macOS daemon = helper bundle (accepted; amends 0008 lifecycle)
+- 0021 Cleaning engine: daemon jobs (`start_job` → `job` events → `job_result`), removal only by item ids of retained scans, `omc_scan::Guard` on every path, one elevated helper run per clean, daemon-owned `settings.toml`; crates omc-scan/omc-apps (accepted)
+- 0022 UI v2: app-owned `omc_ui::ui` components on gpui-base primitives, control scale 24/28/32, one badge per row, default oh-my-clear theme; shared scan store with per-area freshness/auto-scan (accepted; builds on 0011/0013)
+- 0023 App attribution by evidence (paths compiled into app binaries via memchr, open files, receipts; rival/foreign-CLI penalties), friendly names + icons for ids (`ident`/`icon` wire fields), treemap Space Lens (accepted)
 
 ## Hot lessons
 - L-0001 Never create .omp/AGENTS.md or CLAUDE.md — they shadow/compete with root AGENTS.md (omp)
@@ -36,3 +39,6 @@ Memory records development rules and their reasons — never progress, milestone
 - L-0016 gpui `TestAppContext` panics on activity from other threads — test IPC in pure models / `tokio::io::duplex` (gpui, testing)
 - L-0017 Icons outside gpui-kit's 104 default set render blank unless added to `omc_ui::assets` (gpui, assets)
 - L-0023 Global action handlers must `cx.defer` before updating the dispatching window (gpui, actions)
+- L-0028 Never lock a shared mutex per file in a parallel walk; atomics / per-thread buffers / sharded sets (scanning)
+- L-0037 GPUI clicks bubble inner → outer: inner controls in clickable rows must `stop_propagation` (gpui, ui)
+- L-0026 Windows/Linux code is only checkable here via `cargo clippy --target …` (cross-platform)

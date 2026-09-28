@@ -157,10 +157,6 @@ nav:
     covers:
       en: Login items, launch agents and daemons, Windows startup entries and services, XDG autostart and systemd user units.
       zh-CN: 登录项、启动代理与守护进程、Windows 启动项与服务、XDG 自启动项与 systemd 用户单元。
-page:
-  covers:
-    en: Covers
-    zh-CN: 范围
 main:
   shortcuts:
     en: Shortcuts

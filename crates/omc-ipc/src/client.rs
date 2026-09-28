@@ -165,7 +165,7 @@ async fn supervise(
                 match serve(session, &mut requests, &events).await {
                     ServeEnd::HandlesDropped => return,
                     ServeEnd::Quit => {
-                        tracing::info!("oh-my-clear was quit from the daemon; not reconnecting");
+                        tracing::info!("oh-my-clear was quit; not reconnecting");
                         return;
                     }
                     ServeEnd::Lost(reason) => {
@@ -291,7 +291,7 @@ async fn spawn_daemon(exe: &Path, dir: &RuntimeDir) -> Result<()> {
 
 enum ServeEnd {
     HandlesDropped,
-    /// The daemon sent [`Event::Quit`].
+    /// The daemon sent [`Event::Quit`], or stopped on this client's [`Request::Shutdown`].
     Quit,
     Lost(String),
 }
@@ -314,6 +314,9 @@ async fn serve(
     let mut pending: HashMap<u64, oneshot::Sender<Result<Response>>> = HashMap::new();
     let mut ping = tokio::time::interval(PING_INTERVAL);
     let mut last_seen = Instant::now();
+    // Set once this client sent `Shutdown`: the daemon going away is then the goal, not a
+    // loss to recover from by respawning it.
+    let mut stopping = false;
     let end = loop {
         tokio::select! {
             next = requests.recv() => {
@@ -322,10 +325,12 @@ async fn serve(
                 };
                 let id = next_id;
                 next_id = next_id.wrapping_add(1);
+                let shutdown = req == Request::Shutdown;
                 if let Err(err) = frame::write(&mut writer, &ClientFrame::Req { id, req }).await {
                     reply(to, Err(Error::Disconnected));
                     break ServeEnd::Lost(err.to_string());
                 }
+                stopping |= shutdown;
                 pending.insert(id, to);
             }
             incoming = frames.recv() => match incoming {
@@ -339,14 +344,16 @@ async fn serve(
                 }
                 Some(Ok(Some(ServerFrame::Event { ev }))) => {
                     last_seen = Instant::now();
-                    tracing::debug!(?ev, "daemon event");
+                    tracing::trace!(?ev, "daemon event");
+                    let quit = ev == Event::Quit;
                     if events.send(ClientEvent::Daemon(ev)).await.is_err() {
                         tracing::debug!("UI stopped listening for daemon events");
                     }
-                    if ev == Event::Quit {
+                    if quit {
                         break ServeEnd::Quit;
                     }
                 }
+                Some(Ok(None) | Err(_)) | None if stopping => break ServeEnd::Quit,
                 Some(Ok(None)) | None => break ServeEnd::Lost("daemon closed the connection".to_owned()),
                 Some(Err(err)) => break ServeEnd::Lost(err.to_string()),
             },
@@ -595,6 +602,66 @@ mod tests {
                 ]
             ),
             "both events reach the UI in order: {forwarded:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn own_shutdown_ends_the_connection_without_reconnecting() {
+        let (ours, theirs) = tokio::io::duplex(1 << 12);
+        let (reader, writer) = tokio::io::split(Box::new(ours) as BoxedStream);
+        let session = Session {
+            reader,
+            writer,
+            welcome: Welcome {
+                protocol: PROTOCOL,
+                build: "test".to_owned(),
+                epoch: "epoch".to_owned(),
+                pid: 1,
+            },
+            next_id: 1,
+        };
+        let (mut daemon_reader, mut daemon_writer) = tokio::io::split(theirs);
+        let (requests_tx, mut requests) = mpsc::channel(1);
+        let (events_tx, _events) = mpsc::channel(4);
+        let (reply_tx, reply_rx) = oneshot::channel();
+        let sent = requests_tx
+            .send(Outgoing {
+                req: Request::Shutdown,
+                reply: reply_tx,
+            })
+            .await;
+        assert!(sent.is_ok(), "the request is queued");
+
+        let daemon = async move {
+            let frame = frame::read::<_, ClientFrame>(&mut daemon_reader).await?;
+            if let Some(ClientFrame::Req {
+                id,
+                req: Request::Shutdown,
+            }) = frame
+            {
+                let res = ServerFrame::Res {
+                    id,
+                    res: Ok(Response::Unit),
+                };
+                frame::write(&mut daemon_writer, &res).await?;
+            }
+            // The daemon exits: the connection closes.
+            drop((daemon_reader, daemon_writer));
+            Ok::<_, Error>(())
+        };
+        let client = tokio::time::timeout(
+            Duration::from_secs(5),
+            serve(session, &mut requests, &events_tx),
+        );
+        let (end, _) = tokio::join!(client, daemon);
+
+        assert!(
+            matches!(end, Ok(ServeEnd::Quit)),
+            "a daemon stopped on our request is not respawned"
+        );
+        assert!(
+            matches!(reply_rx.await, Ok(Ok(Response::Unit))),
+            "the shutdown is answered"
         );
     }
 }

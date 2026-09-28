@@ -1,0 +1,423 @@
+_version: 2
+apps:
+  search:
+    en: Search by name, vendor or identifier
+    zh-CN: 按名称、厂商或标识符搜索
+  refresh:
+    en: Refresh
+    zh-CN: 刷新
+  sort:
+    name:
+      en: Name
+      zh-CN: 名称
+    size:
+      en: Size
+      zh-CN: 大小
+    last_used:
+      en: Last used
+      zh-CN: 上次使用
+    installed:
+      en: Installed
+      zh-CN: 安装日期
+  source:
+    all:
+      en: All
+      zh-CN: 全部
+    mac_bundle:
+      en: Applications
+      zh-CN: 应用程序
+    mac_app_store:
+      en: App Store
+      zh-CN: App Store
+    homebrew:
+      en: Homebrew
+      zh-CN: Homebrew
+    win_registry:
+      en: Programs
+      zh-CN: 程序
+    win_store:
+      en: Microsoft Store
+      zh-CN: Microsoft Store
+    deb:
+      en: Debian packages
+      zh-CN: Debian 软件包
+    rpm:
+      en: RPM packages
+      zh-CN: RPM 软件包
+    pacman:
+      en: Pacman packages
+      zh-CN: Pacman 软件包
+    flatpak:
+      en: Flatpak
+      zh-CN: Flatpak
+    snap:
+      en: Snap
+      zh-CN: Snap
+    app_image:
+      en: AppImage
+      zh-CN: AppImage
+    desktop:
+      en: Desktop entries
+      zh-CN: 桌面项
+  kind:
+    bundle:
+      en: Application
+      zh-CN: 应用本体
+    support:
+      en: Application support
+      zh-CN: 应用支持文件
+    cache:
+      en: Caches
+      zh-CN: 缓存
+    preferences:
+      en: Preferences
+      zh-CN: 偏好设置
+    logs:
+      en: Logs and crash reports
+      zh-CN: 日志与崩溃报告
+    container:
+      en: Containers
+      zh-CN: 容器
+    group_container:
+      en: Group containers
+      zh-CN: 群组容器
+    saved_state:
+      en: Saved window state
+      zh-CN: 已存储的窗口状态
+    launch_item:
+      en: Launch agents and helpers
+      zh-CN: 启动代理与辅助程序
+    login_item:
+      en: Login items
+      zh-CN: 登录项
+    receipt:
+      en: Installer receipts
+      zh-CN: 安装收据
+    extension:
+      en: Plug-ins and extensions
+      zh-CN: 插件与扩展
+    shortcut:
+      en: Shortcuts
+      zh-CN: 快捷方式
+    registry:
+      en: Registry entries
+      zh-CN: 注册表项
+    service:
+      en: Services
+      zh-CN: 服务
+    scheduled_task:
+      en: Scheduled tasks
+      zh-CN: 计划任务
+    web_data:
+      en: Web data
+      zh-CN: 网页数据
+    other:
+      en: Other
+      zh-CN: 其他
+  confidence:
+    high:
+      en: High
+      zh-CN: 高
+    medium:
+      en: Medium
+      zh-CN: 中
+    low:
+      en: Low
+      zh-CN: 低
+  badge:
+    running:
+      en: Running
+      zh-CN: 运行中
+    admin:
+      en: Needs admin
+      zh-CN: 需要管理员
+    system:
+      en: System
+      zh-CN: 系统
+  never_used:
+    en: Not recorded
+    zh-CN: 无记录
+  empty:
+    title:
+      en: No apps match
+      zh-CN: 没有匹配的应用
+    body:
+      en: Try another search or source.
+      zh-CN: 试试其他搜索词或来源。
+  idle:
+    title:
+      en: Installed apps
+      zh-CN: 已安装的应用
+    body:
+      en: The list loads as soon as the oh-my-clear service is connected.
+      zh-CN: 连接到 oh-my-clear 后台服务后会自动加载列表。
+  selected:
+    en: "%{n} apps selected"
+    zh-CN: "已选择 %{n} 个应用"
+  clear_selection:
+    en: Clear selection
+    zh-CN: 清除选择
+  system_locked:
+    en: System apps are part of the operating system and can't be uninstalled.
+    zh-CN: 系统应用是操作系统的一部分，无法卸载。
+  select:
+    en: Select for batch uninstall
+    zh-CN: 选择以批量卸载
+  load:
+    en: Load apps
+    zh-CN: 加载应用列表
+  used_ago:
+    en: "Used %{age}"
+    zh-CN: "上次使用：%{age}"
+  installed_ago:
+    en: "Installed %{age}"
+    zh-CN: "安装于：%{age}"
+  pick:
+    title:
+      en: Select an app
+      zh-CN: 选择一个应用
+    body:
+      en: Choose an app on the left to see everything that belongs to it.
+      zh-CN: 在左侧选择一个应用，查看属于它的所有内容。
+  batch_body:
+    en: Each app is removed with its related items at the confidence set in Settings.
+    zh-CN: 每个应用会连同设置中所选可信度及以上的相关项目一并删除。
+uninstall:
+  button:
+    en: Uninstall
+    zh-CN: 卸载
+  close:
+    en: Close
+    zh-CN: 关闭
+  uninstaller:
+    en: App's own uninstaller
+    zh-CN: 应用自带的卸载程序
+  no_uninstaller:
+    en: This app has no uninstaller of its own; its files are removed directly.
+    zh-CN: 该应用没有自带的卸载程序，将直接删除其文件。
+  totals:
+    en: "%{selected} of %{all} items selected · %{bytes}"
+    zh-CN: "已选择 %{selected}/%{all} 项 · %{bytes}"
+  review_hint:
+    en: Items with lower confidence were found by name only and may belong to something else — check them before selecting.
+    zh-CN: 可信度较低的项目仅按名称找到，可能属于其他软件——勾选前请检查。
+  confirm:
+    title_one:
+      en: "Uninstall %{name}?"
+      zh-CN: "卸载 %{name}？"
+    title_many:
+      en: "Uninstall %{n} apps?"
+      zh-CN: "卸载 %{n} 个应用？"
+    body_one:
+      en: "%{count} items (%{bytes}) will be removed."
+      zh-CN: "将删除 %{count} 项（%{bytes}）。"
+    body_many:
+      en: "For each app, related items at %{level} confidence or higher are removed."
+      zh-CN: "对每个应用，将删除可信度为“%{level}”及以上的相关项目。"
+    more:
+      en: "and %{n} more"
+      zh-CN: "以及另外 %{n} 个"
+    run_uninstaller:
+      en: Run the app's own uninstaller first
+      zh-CN: 先运行应用自带的卸载程序
+    quit:
+      en: Running apps are quit first; unsaved work in them is lost.
+      zh-CN: 正在运行的应用会先被退出，其中未保存的内容会丢失。
+    admin:
+      en: You may be asked for an administrator password.
+      zh-CN: 可能会要求你输入管理员密码。
+    trash:
+      en: Files are moved to the Trash.
+      zh-CN: 文件将被移到废纸篓。
+    permanent:
+      en: Files are deleted permanently.
+      zh-CN: 文件将被永久删除。
+    ok:
+      en: Uninstall
+      zh-CN: 卸载
+    cancel:
+      en: Cancel
+      zh-CN: 取消
+  phase:
+    finding:
+      en: Finding related files…
+      zh-CN: 正在查找相关文件……
+    starting:
+      en: Preparing…
+      zh-CN: 正在准备……
+    quitting:
+      en: Quitting the app…
+      zh-CN: 正在退出应用……
+    uninstalling:
+      en: The app's uninstaller is running. Follow the uninstaller's window.
+      zh-CN: 应用自带的卸载程序正在运行，请按照卸载程序窗口的提示操作。
+    elevating:
+      en: Approve the administrator prompt to continue.
+      zh-CN: 请在管理员授权提示中确认以继续。
+    removing:
+      en: Removing files…
+      zh-CN: 正在删除文件……
+  status:
+    pending:
+      en: Waiting
+      zh-CN: 等待中
+    finding:
+      en: Finding files
+      zh-CN: 正在查找文件
+    running:
+      en: Uninstalling
+      zh-CN: 正在卸载
+    done:
+      en: Removed
+      zh-CN: 已移除
+    failed:
+      en: Failed
+      zh-CN: 失败
+  outcome:
+    not_run:
+      en: The app's own uninstaller did not run.
+      zh-CN: 应用自带的卸载程序未运行。
+    succeeded:
+      en: The app's own uninstaller finished.
+      zh-CN: 应用自带的卸载程序已完成。
+    failed:
+      en: "The app's own uninstaller failed: %{detail}. Its files were still removed as selected."
+      zh-CN: "应用自带的卸载程序失败：%{detail}。已按所选内容删除其文件。"
+    cancelled:
+      en: The app's own uninstaller was cancelled.
+      zh-CN: 应用自带的卸载程序已取消。
+  running_title:
+    en: "Uninstalling %{name}"
+    zh-CN: "正在卸载 %{name}"
+  batch_title:
+    en: "Uninstalling apps · %{done} of %{n} done"
+    zh-CN: "正在卸载应用 · 已完成 %{done}/%{n}"
+  finished_title:
+    en: Uninstall finished
+    zh-CN: 卸载完成
+  leftovers_hint:
+    en: Some apps leave files in places only a full scan finds. Run a scan in Leftovers to catch them.
+    zh-CN: 部分应用会在只有完整扫描才能发现的位置留下文件。请在“残留文件”中扫描以找出它们。
+  restarted:
+    en: The oh-my-clear service restarted during the uninstall. Refresh the list to see what is left.
+    zh-CN: 卸载过程中 oh-my-clear 后台服务重新启动了。请刷新列表查看剩余内容。
+  batch:
+    en: "Uninstall %{n} selected"
+    zh-CN: "卸载所选 %{n} 个"
+  selected_size:
+    en: Selected
+    zh-CN: 已选
+  step:
+    quit:
+      en: Quit the app
+      zh-CN: 退出应用
+    uninstaller:
+      en: Run its own uninstaller
+      zh-CN: 运行自带的卸载程序
+    admin:
+      en: Administrator approval
+      zh-CN: 管理员授权
+    remove:
+      en: Remove files
+      zh-CN: 删除文件
+startup:
+  refresh:
+    en: Refresh
+    zh-CN: 刷新
+  summary:
+    en: "%{enabled} of %{total} enabled"
+    zh-CN: "已启用 %{enabled}/%{total}"
+  kind:
+    login_item:
+      en: Login item
+      zh-CN: 登录项
+    launch_agent:
+      en: Launch agent
+      zh-CN: 启动代理
+    launch_daemon:
+      en: Launch daemon
+      zh-CN: 启动守护进程
+    run_key:
+      en: Registry Run key
+      zh-CN: 注册表 Run 项
+    startup_folder:
+      en: Startup folder
+      zh-CN: 启动文件夹
+    scheduled_task:
+      en: Scheduled task
+      zh-CN: 计划任务
+    service:
+      en: Service
+      zh-CN: 服务
+    xdg_autostart:
+      en: Autostart entry
+      zh-CN: 自动启动项
+    systemd_unit:
+      en: systemd unit
+      zh-CN: systemd 单元
+  scope:
+    system:
+      en: All users
+      zh-CN: 所有用户
+  missing:
+    en: Program not found
+    zh-CN: 找不到程序
+  admin:
+    en: Needs admin
+    zh-CN: 需要管理员
+  toggle:
+    en: Start automatically
+    zh-CN: 自动启动
+  remove:
+    en: Remove
+    zh-CN: 移除
+  remove_confirm:
+    title:
+      en: "Remove %{name}?"
+      zh-CN: "移除 %{name}？"
+    body:
+      en: The registration is deleted and it won't start again. Turning it off instead can be undone.
+      zh-CN: 该注册项会被删除，之后不会再启动。改为关闭则可以随时恢复。
+    ok:
+      en: Remove
+      zh-CN: 移除
+    cancel:
+      en: Cancel
+      zh-CN: 取消
+  change_failed:
+    en: "Could not change %{name}: %{error}"
+    zh-CN: "无法更改 %{name}：%{error}"
+  empty:
+    title:
+      en: No startup items
+      zh-CN: 没有启动项
+    body:
+      en: Nothing starts automatically at login or boot besides the system.
+      zh-CN: 除系统外，登录或开机时没有自动启动的程序。
+  idle:
+    title:
+      en: Startup items
+      zh-CN: 启动项
+    body:
+      en: The list loads as soon as the oh-my-clear service is connected.
+      zh-CN: 连接到 oh-my-clear 后台服务后会自动加载列表。
+  load:
+    en: Load startup items
+    zh-CN: 加载启动项
+  filter:
+    all:
+      en: All
+      zh-CN: 全部
+    enabled:
+      en: Enabled
+      zh-CN: 已启用
+    disabled:
+      en: Disabled
+      zh-CN: 已停用
+  filtered_empty:
+    title:
+      en: Nothing in this view
+      zh-CN: 此视图中没有项目
+    body:
+      en: Choose another filter.
+      zh-CN: 请选择其他筛选条件。

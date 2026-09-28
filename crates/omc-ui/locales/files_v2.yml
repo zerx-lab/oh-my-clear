@@ -1,0 +1,18 @@
+_version: 2
+files2:
+  groups:
+    en: "%{count} duplicate groups"
+    zh-CN: "%{count} 组重复文件"
+  lens:
+    hint:
+      en: "Point at a block for details · click a folder to open it · Backspace goes up"
+      zh-CN: "指向色块查看详情 · 点击文件夹进入 · 按退格键返回上一级"
+    share:
+      en: "%{share} of %{folder}"
+      zh-CN: "占 %{folder} 的 %{share}"
+    files:
+      en: "%{n} files"
+      zh-CN: "%{n} 个文件"
+    other:
+      en: "%{n} smaller items"
+      zh-CN: "%{n} 个较小的项目"

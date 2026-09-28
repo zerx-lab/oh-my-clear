@@ -17,7 +17,8 @@ use crate::{Error, Result, window};
 gpui_kit::actions!(
     oh_my_clear,
     [
-        /// Quit the UI process (the daemon keeps running).
+        /// Quit oh-my-clear: the UI and the daemon with its tray. Closing the last window
+        /// (`CloseWindow`) only ends the UI.
         Quit,
         /// Close the focused window.
         CloseWindow,
@@ -83,7 +84,7 @@ fn set_language(language: Language, cx: &mut App) {
 
 /// Registers handlers and key bindings.
 pub(crate) fn init(cx: &mut App) -> Result<()> {
-    cx.on_action(|_: &Quit, cx| cx.quit());
+    cx.on_action(|_: &Quit, cx| crate::engine::quit_all(cx));
     cx.on_action(|_: &OpenSettings, cx| window::open_settings_window(cx));
     cx.on_action(|_: &CloseWindow, cx| with_active_window(cx, Window::remove_window));
     cx.on_action(|_: &Minimize, cx| with_active_window(cx, |w| w.minimize_window()));

@@ -8,18 +8,20 @@
 //! collapsed and settled the panel is not rendered at all.
 
 use gpui_kit::base::spring;
-use gpui_kit::component::sidebar::{SidebarGroup, SidebarItem as _, SidebarMenu, SidebarMenuItem};
-use gpui_kit::component::{ActiveTheme as _, Icon, IconName, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme as _, IconName, v_flex};
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, Context, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
-    Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    AnyElement, App, Context, ElementId, FontWeight, InteractiveElement as _, IntoElement,
+    ParentElement as _, Pixels, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
+    Window, div,
 };
 
-use crate::actions::{self, OpenSettings};
+use crate::actions::OpenSettings;
 use crate::motion;
 use crate::nav::{Category, NAV};
 use crate::theme;
-use crate::tokens::{chrome, layout, space};
+use crate::tokens::{chrome, layout, space, text};
+use crate::ui;
 
 /// Navigation state of the main window: selected area and whether the panel is shown.
 #[derive(Debug, Default)]
@@ -45,56 +47,61 @@ impl Sidebar {
         cx.notify();
     }
 
-    fn select(&mut self, category: Category, cx: &mut Context<'_, Self>) {
+    /// Shows `category`.
+    pub(crate) fn select(&mut self, category: Category, cx: &mut Context<'_, Self>) {
         if self.selected != category {
             self.selected = category;
             cx.notify();
         }
     }
 
-    fn render_nav(&self, window: &mut Window, cx: &mut Context<'_, Self>) -> Vec<AnyElement> {
+    fn render_nav(&self, cx: &mut Context<'_, Self>) -> Vec<AnyElement> {
         NAV.iter()
-            .enumerate()
-            .map(|(ix, group)| {
-                let menu = SidebarMenu::new()
+            .map(|group| {
+                let muted = cx.theme().muted_foreground;
+                v_flex()
                     .gap(space::XXS)
+                    .when_some(group.label, |this, label| {
+                        this.child(
+                            div()
+                                .px(space::MD)
+                                .pt(space::MD)
+                                .pb(space::XS)
+                                .text_size(text::CAPTION)
+                                .line_height(text::CAPTION_LINE_HEIGHT)
+                                .font_weight(FontWeight::MEDIUM)
+                                .text_color(muted)
+                                .child(tr(label)),
+                        )
+                    })
                     .children(group.items.iter().map(|&category| {
-                        SidebarMenuItem::new(category.title())
-                            .icon(Icon::new(category.icon()))
-                            .active(category == self.selected)
-                            .on_click(cx.listener(move |this, _, _, cx| this.select(category, cx)))
-                    }));
-                let id = SharedString::from(format!("sidebar-group-{ix}"));
-                match group.label {
-                    Some(label) => SidebarGroup::new(tr(label))
-                        .child(menu)
-                        .render(id, window, cx)
-                        .into_any_element(),
-                    None => menu.render(id, window, cx).into_any_element(),
-                }
+                        ui::NavItem::new(
+                            ElementId::Name(SharedString::new_static(category.key())),
+                            category.icon(),
+                            category.title(),
+                        )
+                        .selected(category == self.selected)
+                        .on_click(cx.listener(move |this, _, _, cx| this.select(category, cx)))
+                    }))
+                    .into_any_element()
             })
             .collect()
     }
 
-    fn render_footer(window: &mut Window, cx: &mut App) -> AnyElement {
-        let settings = SidebarMenuItem::new(tr("nav.settings"))
-            .icon(Icon::new(IconName::Settings))
-            .suffix(|window, _| {
-                h_flex()
-                    .gap(space::XXS)
-                    .children(actions::key_hints(&OpenSettings, window))
-            })
-            .on_click(|_, window, cx| window.dispatch_action(Box::new(OpenSettings), cx));
+    fn render_footer(cx: &App) -> AnyElement {
+        let settings = ui::NavItem::new(
+            ElementId::Name(SharedString::new_static("sidebar-settings")),
+            IconName::Settings,
+            tr("nav.settings"),
+        )
+        .suffix(ui::Kbd::new(&OpenSettings))
+        .on_click(|_, window, cx| window.dispatch_action(Box::new(OpenSettings), cx));
         div()
             .flex_none()
             .p(space::MD)
             .border_t_1()
             .border_color(theme::divider_color(cx))
-            .child(
-                SidebarMenu::new()
-                    .child(settings)
-                    .render("sidebar-footer", window, cx),
-            )
+            .child(settings)
             .into_any_element()
     }
 }
@@ -118,8 +125,8 @@ impl Render for Sidebar {
             return clip;
         }
 
-        let nav = self.render_nav(window, cx);
-        let footer = Self::render_footer(window, cx);
+        let nav = self.render_nav(cx);
+        let footer = Self::render_footer(cx);
         let theme = cx.theme();
         clip.child(
             v_flex()
@@ -142,7 +149,7 @@ impl Render for Sidebar {
                         .overflow_y_scroll()
                         .px(space::MD)
                         .pb(space::MD)
-                        .gap(space::MD)
+                        .gap(space::XS)
                         .children(nav),
                 )
                 .child(footer),

@@ -1,5 +1,5 @@
 //! The app's asset source: gpui-kit's default component icon bundle plus the Lucide icons
-//! oh-my-clear adds (sidebar categories). Register it with
+//! oh-my-clear adds (sidebar categories, status facts, file kinds). Register it with
 //! `application().with_assets(omc_ui::assets::Assets)`.
 
 use std::borrow::Cow;
@@ -9,7 +9,26 @@ use gpui_kit::{AssetSource, SharedString};
 gpui_kit::assets::icon_assets!(
     AppIcons,
     [
-        Broom, Cookie, CodeXml, Trash, FileClock, PackageX, FolderX, Disc3, Rocket
+        Broom,
+        Cookie,
+        CodeXml,
+        Trash,
+        FileClock,
+        PackageX,
+        FolderX,
+        Disc3,
+        Rocket,
+        Lock,
+        ShieldCheck,
+        Clock,
+        Sparkles,
+        Film,
+        Music,
+        Image,
+        FileArchive,
+        Package,
+        Power,
+        AppWindow
     ]
 );
 

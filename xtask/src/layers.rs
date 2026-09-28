@@ -21,7 +21,12 @@ const LAYERS: &[(&str, &[&str])] = &[
     ("omc-proto", &[]),
     ("omc-ipc", &["omc-proto"]),
     ("omc-telemetry", &[]),
-    ("omc-engine", &["omc-proto", "omc-ipc"]),
+    ("omc-scan", &["omc-proto"]),
+    ("omc-apps", &["omc-proto", "omc-scan"]),
+    (
+        "omc-engine",
+        &["omc-proto", "omc-ipc", "omc-scan", "omc-apps"],
+    ),
     ("omc-ui", &["omc-proto", "omc-ipc"]),
     (
         "oh-my-clear",
@@ -29,7 +34,13 @@ const LAYERS: &[(&str, &[&str])] = &[
     ),
     (
         "oh-my-clear-daemon",
-        &["omc-engine", "omc-ipc", "omc-proto", "omc-telemetry"],
+        &[
+            "omc-engine",
+            "omc-ipc",
+            "omc-proto",
+            "omc-telemetry",
+            "omc-apps",
+        ],
     ),
     ("xtask", &[]),
 ];

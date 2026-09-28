@@ -1,0 +1,337 @@
+_version: 2
+settings:
+  window:
+    search:
+      en: Search settings
+      zh-CN: 搜索设置
+    reset:
+      en: Reset to defaults
+      zh-CN: 恢复默认
+    nav_clean:
+      en: Scanning & cleaning
+      zh-CN: 扫描与清理
+    no_results:
+      title:
+        en: No matching settings
+        zh-CN: 没有匹配的设置
+      description:
+        en: Try another word.
+        zh-CN: 换个关键词试试。
+  clean:
+    loading:
+      en: Waiting for the oh-my-clear service… These settings become editable once it answers.
+      zh-CN: 正在等待 oh-my-clear 后台服务……服务响应后即可编辑这些设置。
+    save_failed:
+      en: "Could not save settings: %{error}"
+      zh-CN: "无法保存设置：%{error}"
+    page:
+      scanning:
+        en: Scanning
+        zh-CN: 扫描
+      cleaning:
+        en: Cleaning
+        zh-CN: 清理
+      browsers:
+        en: Browsers
+        zh-CN: 浏览器
+      developer:
+        en: Developer
+        zh-CN: 开发者
+      large_old:
+        en: Large & Old
+        zh-CN: 大文件与旧文件
+      duplicates:
+        en: Duplicates
+        zh-CN: 重复文件
+      uninstaller:
+        en: Uninstaller
+        zh-CN: 卸载器
+    group:
+      scope:
+        en: What is scanned
+        zh-CN: 扫描范围
+      performance:
+        en: Performance
+        zh-CN: 性能
+      safety:
+        en: Safety
+        zh-CN: 安全
+      removal:
+        en: Removal
+        zh-CN: 删除方式
+      privacy:
+        en: Private data
+        zh-CN: 隐私数据
+      projects:
+        en: Projects
+        zh-CN: 项目
+      large:
+        en: Large files
+        zh-CN: 大文件
+      old:
+        en: Old files
+        zh-CN: 旧文件
+      duplicates:
+        en: Comparison
+        zh-CN: 比较
+      apps:
+        en: App list
+        zh-CN: 应用列表
+      uninstall:
+        en: Uninstalling
+        zh-CN: 卸载过程
+      windows:
+        en: Windows safeguards
+        zh-CN: Windows 保护措施
+    list:
+      add:
+        en: Add
+        zh-CN: 添加
+      remove:
+        en: Remove
+        zh-CN: 移除
+      invalid:
+        en: Enter an absolute path or one starting with ~/
+        zh-CN: 请输入绝对路径，或以 ~/ 开头的路径
+      duplicate:
+        en: Already in the list
+        zh-CN: 已在列表中
+    exclude:
+      title:
+        en: Excluded folders
+        zh-CN: 排除的文件夹
+      description:
+        en: Never scanned, listed or removed. Add folders you want oh-my-clear to leave alone entirely.
+        zh-CN: 永远不会被扫描、列出或删除。添加希望 oh-my-clear 完全不碰的文件夹。
+      placeholder:
+        en: /path/to/folder or ~/folder
+        zh-CN: /路径/文件夹 或 ~/文件夹
+      empty:
+        en: Nothing is excluded.
+        zh-CN: 没有排除任何文件夹。
+    file_roots:
+      title:
+        en: Folders to search
+        zh-CN: 搜索的文件夹
+      description:
+        en: Where large and old files, duplicates, installers and project build output are looked for. More folders find more but take longer.
+        zh-CN: 查找大文件、旧文件、重复文件、安装包和项目构建产物的位置。文件夹越多，找到的越多，但耗时越长。
+      placeholder:
+        en: /Volumes/Data or ~/Projects
+        zh-CN: /Volumes/Data 或 ~/Projects
+      empty:
+        en: Your home folder.
+        zh-CN: 你的个人文件夹。
+    one_file_system:
+      title:
+        en: Stay on one disk
+        zh-CN: 不跨越磁盘
+      description:
+        en: Don't follow into other volumes, network shares or mounted disk images. Faster and avoids counting the same data twice.
+        zh-CN: 不进入其他卷、网络共享或已挂载的磁盘映像。更快，且避免重复统计同一份数据。
+    skip_hidden:
+      title:
+        en: Skip hidden files
+        zh-CN: 跳过隐藏文件
+      description:
+        en: Ignore hidden files and folders in Large & Old, Duplicates and Space Lens. Turn off to find space used by dotfiles.
+        zh-CN: 在大文件、重复文件和空间透镜中忽略隐藏文件和文件夹。关闭后可找出点文件占用的空间。
+    scan_threads:
+      title:
+        en: Scanner threads
+        zh-CN: 扫描线程
+      description:
+        en: Auto uses every core and is fastest. Fewer threads keep fans quiet and leave the computer responsive during scans.
+        zh-CN: “自动”使用全部核心，速度最快。减少线程可降低风扇噪音，扫描时电脑更流畅。
+      auto:
+        en: Auto (fastest)
+        zh-CN: 自动（最快）
+    junk_min_age:
+      title:
+        en: Keep recent temp files and logs
+        zh-CN: 保留较新的临时文件和日志
+      description:
+        en: Files newer than this are left alone because running apps may still use them. Lower values free more space but risk breaking open apps.
+        zh-CN: 比此时间新的文件不会清理，因为运行中的应用可能仍在使用。数值越小释放越多空间，但可能影响正在运行的应用。
+    skip_running_apps:
+      title:
+        en: Skip apps that are running
+        zh-CN: 跳过正在运行的应用
+      description:
+        en: Leave caches of running apps and browsers alone. Cleaning them while open can corrupt profiles, and they are recreated right away.
+        zh-CN: 不清理正在运行的应用和浏览器的缓存。运行时清理可能损坏配置文件，而且缓存会立即重新生成。
+    include_system:
+      title:
+        en: Include system locations
+        zh-CN: 包括系统位置
+      description:
+        en: Also scan system-wide caches and logs. Finds more, but removing them needs administrator rights.
+        zh-CN: 同时扫描系统级缓存和日志。能找到更多，但删除它们需要管理员权限。
+    junk_delete:
+      title:
+        en: Remove junk by
+        zh-CN: 垃圾删除方式
+      description:
+        en: Caches, logs and build output are recreated on demand, so deleting them permanently frees the space at once.
+        zh-CN: 缓存、日志和构建产物会按需重建，永久删除可立即释放空间。
+    files_delete:
+      title:
+        en: Remove your files by
+        zh-CN: 个人文件删除方式
+      description:
+        en: Large files, duplicates, apps and leftovers. Moving to the Trash (recommended) lets you restore a mistake; space is freed when you empty it.
+        zh-CN: 大文件、重复文件、应用及残留。移到废纸篓（推荐）可以撤销误删；清空废纸篓后才会释放空间。
+    elevate:
+      title:
+        en: Ask for administrator password
+        zh-CN: 请求管理员密码
+      description:
+        en: Prompt once when items need administrator rights. When off, those items are skipped and reported as permission denied.
+        zh-CN: 当项目需要管理员权限时提示一次。关闭后这些项目会被跳过并报告为权限不足。
+    delete:
+      permanent:
+        en: Deleting permanently
+        zh-CN: 永久删除
+      trash:
+        en: Moving to Trash
+        zh-CN: 移到废纸篓
+    browser_cookies:
+      title:
+        en: Offer cookies
+        zh-CN: 提供 Cookie 清理
+      description:
+        en: Removing cookies signs you out of websites. Never preselected.
+        zh-CN: 删除 Cookie 会让你退出网站登录。永远不会默认勾选。
+    browser_history:
+      title:
+        en: Offer browsing history
+        zh-CN: 提供浏览历史清理
+      description:
+        en: Removes visited pages and the downloads list; address-bar suggestions are lost. Never preselected.
+        zh-CN: 删除访问过的页面和下载记录；地址栏建议会丢失。永远不会默认勾选。
+    browser_site_data:
+      title:
+        en: Offer site data
+        zh-CN: 提供网站数据清理
+      description:
+        en: Local storage and databases of websites. Removing it signs you out and loses offline data of web apps. Never preselected.
+        zh-CN: 网站的本地存储和数据库。删除后会退出登录，并丢失网页应用的离线数据。永远不会默认勾选。
+    browser_sessions:
+      title:
+        en: Offer saved sessions
+        zh-CN: 提供已保存会话清理
+      description:
+        en: Removing sessions loses the tabs and windows the browser would reopen. Never preselected.
+        zh-CN: 删除会话会丢失浏览器将要恢复的标签页和窗口。永远不会默认勾选。
+    dev_min_age:
+      title:
+        en: Only projects untouched for
+        zh-CN: 仅限未改动超过
+      description:
+        en: Build output (node_modules, target…) of projects you are working on is left alone; rebuilding it takes time.
+        zh-CN: 正在开发的项目的构建产物（node_modules、target 等）不会被清理，重新构建需要时间。
+    dev_max_depth:
+      title:
+        en: Search depth
+        zh-CN: 搜索深度
+      description:
+        en: How many folder levels below each search folder projects are looked for. Deeper finds more but scans longer.
+        zh-CN: 在每个搜索文件夹下查找项目的层数。越深找到的越多，但扫描更久。
+    large_min:
+      title:
+        en: Large file threshold
+        zh-CN: 大文件阈值
+      description:
+        en: Files at least this big are listed. A lower threshold finds more but makes the list long.
+        zh-CN: 列出不小于此大小的文件。阈值越低找到的越多，但列表也会更长。
+    old_days:
+      title:
+        en: Old after
+        zh-CN: 视为旧文件
+      description:
+        en: Files not modified for this long are listed as old. Off lists only large files.
+        zh-CN: 超过此时间未修改的文件会列为旧文件。关闭后仅列出大文件。
+    old_min:
+      title:
+        en: Ignore old files smaller than
+        zh-CN: 忽略小于此大小的旧文件
+      description:
+        en: Small old files free little space and bury the ones that matter.
+        zh-CN: 小的旧文件释放不了多少空间，还会淹没真正重要的文件。
+    dup_min:
+      title:
+        en: Ignore files smaller than
+        zh-CN: 忽略小于此大小的文件
+      description:
+        en: Small duplicates are common (icons, configs) and free little space; skipping them makes the scan much faster.
+        zh-CN: 小的重复文件很常见（图标、配置），释放空间有限；跳过它们能大幅加快扫描。
+    show_system_apps:
+      title:
+        en: Show system apps
+        zh-CN: 显示系统应用
+      description:
+        en: List apps that ship with the operating system. They are shown for reference and can never be uninstalled.
+        zh-CN: 列出操作系统自带的应用。仅供查看，永远无法卸载。
+    leftover_confidence:
+      title:
+        en: Preselect related items from
+        zh-CN: 默认勾选相关项目的可信度
+      description:
+        en: Items found by name only may belong to something else. High selects only certain matches; lower levels remove more but need review.
+        zh-CN: 仅按名称找到的项目可能属于其他软件。“高”只勾选确定的匹配；较低级别删除更多，但需要检查。
+    run_vendor_uninstaller:
+      title:
+        en: Run the app's own uninstaller
+        zh-CN: 运行应用自带的卸载程序
+      description:
+        en: Lets the vendor remove drivers, services and registrations it knows about. Some uninstallers open a window or ask questions.
+        zh-CN: 让厂商卸载程序删除它所知道的驱动、服务和注册项。部分卸载程序会打开窗口或询问问题。
+    quit_running_apps:
+      title:
+        en: Quit apps before uninstalling
+        zh-CN: 卸载前退出应用
+      description:
+        en: Asks the app to quit, then forces it. Unsaved work in that app is lost.
+        zh-CN: 先请求应用退出，必要时强制退出。该应用中未保存的内容会丢失。
+    restore_point:
+      title:
+        en: Create a restore point
+        zh-CN: 创建还原点
+      description:
+        en: Lets System Restore undo an uninstall. Takes extra time and disk space.
+        zh-CN: 可以用系统还原撤销卸载。需要额外的时间和磁盘空间。
+    backup_registry:
+      title:
+        en: Back up registry keys
+        zh-CN: 备份注册表项
+      description:
+        en: Exports keys to a .reg file before deleting them, so a wrong removal can be undone.
+        zh-CN: 删除前将注册表项导出为 .reg 文件，误删时可以恢复。
+    value:
+      no_limit:
+        en: No limit
+        zh-CN: 不限制
+      "off":
+        en: "Off"
+        zh-CN: 关闭
+      any_size:
+        en: Any size
+        zh-CN: 任意大小
+      hours:
+        en: "%{n} hours"
+        zh-CN: "%{n} 小时"
+      one_hour:
+        en: 1 hour
+        zh-CN: 1 小时
+      days:
+        en: "%{n} days"
+        zh-CN: "%{n} 天"
+      levels:
+        en: "%{n} levels"
+        zh-CN: "%{n} 层"
+      threads:
+        en: "%{n} threads"
+        zh-CN: "%{n} 个线程"
+      one_thread:
+        en: 1 thread
+        zh-CN: 1 个线程

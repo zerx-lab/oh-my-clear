@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use omc_engine::Engine;
+use omc_engine::{Engine, EngineConfig};
 use omc_ipc::server::{self, Listener};
 use omc_ipc::{DaemonLock, RuntimeDir};
 use omc_proto::{Event, PROTOCOL, Welcome};
@@ -60,7 +60,11 @@ pub(crate) async fn serve(shell: Shell) -> Result<()> {
         epoch,
         pid: std::process::id(),
     };
-    let engine = Engine::new();
+    let settings_path = omc_engine::default_settings_path();
+    if settings_path.is_none() {
+        tracing::warn!("no config directory; settings are kept in memory only");
+    }
+    let engine = Engine::with_config(EngineConfig { settings_path });
     omc_ipc::announce_ready(&welcome.epoch)?;
     tracing::info!(epoch = %welcome.epoch, dir = %dir.path().display(), "oh-my-clear-daemon ready");
     on_ready();

@@ -1,0 +1,14 @@
+_version: 2
+time:
+  today:
+    en: Today
+    zh-CN: 今天
+  days:
+    en: "%{n} days ago"
+    zh-CN: "%{n} 天前"
+  months:
+    en: "%{n} months ago"
+    zh-CN: "%{n} 个月前"
+  years:
+    en: "%{n} years ago"
+    zh-CN: "%{n} 年前"

@@ -15,7 +15,8 @@ use omc_ipc::client::ConnState;
 
 use crate::actions::ToggleSidebar;
 use crate::engine::{self, Engine};
-use crate::page;
+use crate::nav::Category;
+use crate::pages::{Navigate, Pages};
 use crate::sidebar::Sidebar;
 use crate::theme;
 use crate::title_bar::AppTitleBar;
@@ -26,6 +27,9 @@ pub struct MainView {
     focus_handle: FocusHandle,
     engine: Entity<Engine>,
     sidebar: Entity<Sidebar>,
+    pages: Pages,
+    /// The area whose page was last told it is on screen.
+    shown: Category,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -46,19 +50,45 @@ impl MainView {
         focus_handle.focus(window, cx);
         let engine = engine::entity(cx);
         let sidebar = cx.new(|_| Sidebar::default());
+        let pages = Pages::new(window, cx);
+        let shown = sidebar.read(cx).selected();
+        pages.set_visible(shown, true, cx);
         let subscriptions = vec![
             cx.observe_window_appearance(window, |_, window, cx| {
                 theme::system_appearance_changed(window.appearance(), cx);
             }),
+            // Coming back to the window refreshes the shown page if its result went stale.
+            cx.observe_window_activation(window, |this, window, cx| {
+                if window.is_window_active() {
+                    this.pages.set_visible(this.shown, true, cx);
+                }
+            }),
             // The status bar shows the connection state.
             cx.subscribe(&engine, |_, _, _, cx| cx.notify()),
-            // The page and the toggle icon follow the sidebar.
-            cx.observe(&sidebar, |_, _, cx| cx.notify()),
+            // The page and the toggle icon follow the sidebar; a newly selected page is
+            // told it is on screen (it may refresh its results).
+            cx.observe(&sidebar, |this, sidebar, cx| {
+                let selected = sidebar.read(cx).selected();
+                if selected != this.shown {
+                    let previous = std::mem::replace(&mut this.shown, selected);
+                    this.pages.set_visible(previous, false, cx);
+                    this.pages.set_visible(selected, true, cx);
+                }
+                cx.notify();
+            }),
+            // The overview links to the areas.
+            cx.subscribe(&pages.overview, |this, _, Navigate(category), cx| {
+                let category = *category;
+                this.sidebar
+                    .update(cx, |sidebar, cx| sidebar.select(category, cx));
+            }),
         ];
         Self {
             focus_handle,
             engine,
             sidebar,
+            pages,
+            shown,
             _subscriptions: subscriptions,
         }
     }
@@ -132,7 +162,7 @@ impl MainView {
 }
 
 impl Render for MainView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let (collapsed, selected) = {
             let sidebar = self.sidebar.read(cx);
             (sidebar.is_collapsed(), sidebar.selected())
@@ -144,7 +174,15 @@ impl Render for MainView {
             .bg(cx.theme().background)
             // Under the titlebar.
             .child(div().flex_none().h(chrome::TITLE_BAR_HEIGHT))
-            .child(page::render(selected, window, cx))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .w_full()
+                    .child(self.pages.view(selected)),
+            )
             .child(self.render_status_bar(cx));
 
         div()

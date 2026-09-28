@@ -1,6 +1,7 @@
 //! UI preferences (theme and language) as one GPUI global. Every write goes through
 //! [`UiSettings::update`], which applies side effects (locale, theme, native menus) and
 //! refreshes all windows, so a view never has to know what depends on a preference.
+//! Changes are also persisted in the daemon's settings ([`crate::clean_settings`]).
 
 use std::sync::LazyLock;
 
@@ -50,6 +51,7 @@ impl UiSettings {
         if language_changed || appearance_changed {
             actions::set_menus(cx);
         }
+        crate::clean_settings::ui_changed(cx);
         cx.refresh_windows();
     }
 }

@@ -6,6 +6,8 @@
 //! - [`theme`]: presets + appearance + style overrides → gpui-kit's global `Theme`;
 //! - [`i18n`]: English / Simplified Chinese, following the OS by default;
 //! - [`tokens`]: spacing, type scale and chrome geometry; [`motion`]: spring presets;
+//! - [`ui`]: the app's component library (buttons, inputs, lists, cards…) — pages compose
+//!   these instead of styling controls themselves;
 //! - [`title_bar`]: the cross-platform titlebar (window chrome only);
 //! - [`actions`]: every command as an `Action`, key bindings and native menus;
 //! - [`assets`]: gpui-kit's icons plus the app's own;
@@ -17,20 +19,25 @@ rust_i18n::i18n!("locales", fallback = "en");
 pub mod actions;
 pub mod assets;
 mod brand;
+pub mod clean_settings;
 pub mod engine;
 mod error;
 pub mod fonts;
+pub mod format;
 pub mod i18n;
+pub mod jobs;
 mod main_view;
 pub mod motion;
 pub mod nav;
-mod page;
+mod pages;
+pub(crate) mod scans;
 pub mod settings;
 mod settings_view;
 mod sidebar;
 pub mod theme;
 pub mod title_bar;
 pub mod tokens;
+pub mod ui;
 pub mod window;
 
 use gpui_kit::App;
@@ -48,6 +55,7 @@ pub fn init(cx: &mut App) -> Result<()> {
     fonts::register(cx)?;
     theme::init(cx)?;
     cx.set_global(UiSettings::default());
+    clean_settings::init(cx);
     i18n::apply(UiSettings::get(cx).language);
     theme::apply(cx.window_appearance(), cx);
     actions::init(cx)?;
@@ -89,7 +97,11 @@ mod tests {
         });
         let (mode, radius, dark_primary, name) = snapshot(cx);
         assert_eq!(mode, ThemeMode::Dark, "explicit dark applies");
-        assert_eq!(name, "One Dark", "default dark preset applies");
+        assert_eq!(
+            name,
+            crate::theme::presets::DEFAULT_DARK,
+            "default dark preset applies"
+        );
         assert!(
             radius.abs() < f32::EPSILON,
             "square corners apply: {radius}"
@@ -107,7 +119,11 @@ mod tests {
             ThemeMode::Light,
             "switching mode loads the light preset"
         );
-        assert_eq!(name, "One Light", "default light preset applies");
+        assert_eq!(
+            name,
+            crate::theme::presets::DEFAULT_LIGHT,
+            "default light preset applies"
+        );
         assert!(
             radius.abs() < f32::EPSILON,
             "corners survive the mode switch"

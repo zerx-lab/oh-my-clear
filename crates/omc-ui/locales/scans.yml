@@ -1,0 +1,36 @@
+_version: 2
+scans:
+  age:
+    just_now:
+      en: Scanned just now
+      zh-CN: 刚刚扫描
+    minutes:
+      en: "Scanned %{n} min ago"
+      zh-CN: "%{n} 分钟前扫描"
+    hours:
+      en: "Scanned %{n} h ago"
+      zh-CN: "%{n} 小时前扫描"
+    days:
+      en: "Scanned %{n} days ago"
+      zh-CN: "%{n} 天前扫描"
+  stale:
+    body:
+      en: These results may be out of date. Scan again to refresh them.
+      zh-CN: 这些结果可能已过时，重新扫描即可刷新。
+  rescan:
+    en: Rescan
+    zh-CN: 重新扫描
+  rescan_all:
+    en: Rescan all
+    zh-CN: 全部重新扫描
+  settings:
+    group:
+      en: Opening areas
+      zh-CN: 打开区域时
+  auto_open:
+    title:
+      en: Automatically scan when opening an area
+      zh-CN: 打开区域时自动扫描
+    description:
+      en: Quick areas (Trash, browser data, system junk, installers, leftovers, apps, startup items) rescan when their results are missing or out of date. Slow scans such as duplicates always wait for you.
+      zh-CN: 结果缺失或过时时，快速区域（废纸篓、浏览器数据、系统垃圾、安装包、残留文件、应用、启动项）会自动重新扫描。重复文件等耗时扫描始终等待手动开始。
