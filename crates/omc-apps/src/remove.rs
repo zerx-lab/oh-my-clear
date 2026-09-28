@@ -43,6 +43,11 @@ impl TargetOutcome {
 pub(crate) fn execute(targets: &[Target], settings: &CleanSettings, ctx: &JobCtx) -> CleanReport {
     ctx.set_phase(Phase::Removing);
     ctx.set_total(u64::try_from(targets.len()).unwrap_or(u64::MAX));
+    ctx.set_bytes_total(
+        targets
+            .iter()
+            .fold(0, |sum: u64, target| sum.saturating_add(target.bytes)),
+    );
     let guard = Guard::new(settings);
     let backup = backup_dir(settings);
     let mut elevated: Option<bool> = None;
@@ -295,6 +300,14 @@ mod tests {
             (progress.done, progress.total),
             (3, 3),
             "every target counted"
+        );
+        assert_eq!(
+            progress.bytes_total, 8192,
+            "expected bytes = the targets' scanned sizes"
+        );
+        assert_eq!(
+            progress.bytes, report.freed,
+            "progress bytes match the report"
         );
         assert_eq!(progress.phase, Phase::Removing, "phase");
         if let Err(err) = fs::remove_dir_all(&dir) {

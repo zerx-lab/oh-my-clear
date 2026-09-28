@@ -37,7 +37,7 @@ use omc_proto::jobs::{
 };
 
 use super::widgets::{
-    self, ConnChange, Connection, OnClick, Tone, area_header, check, chip, clean_report,
+    self, ConnChange, Connection, Counters, OnClick, Tone, area_header, check, chip, clean_report,
     connection_notice, error_notice, job_progress, notice, page_column, phase_label, size_cell, tr,
 };
 use crate::clean_settings::{self, CleanPrefs};
@@ -2101,6 +2101,7 @@ impl Render for UninstallerPage {
                 Some(slot) => job_progress(
                     "apps-list",
                     &slot.progress,
+                    Counters::Found,
                     Box::new(cx.listener(|this, _, _, cx| slots::cancel(this, Slot::List, cx))),
                     cx,
                 ),

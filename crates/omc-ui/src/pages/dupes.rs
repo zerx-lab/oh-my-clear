@@ -710,6 +710,7 @@ impl Render for DuplicatesPage {
             FlowPhase::Scanning | FlowPhase::Cleaning => vec![widgets::job_progress(
                 "dupes-progress",
                 &flow.progress,
+                flow.phase.counters(),
                 Self::listener(cx, |this, _, cx| this.store(cx, Scans::cancel)),
                 cx,
             )],

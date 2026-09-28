@@ -1052,6 +1052,7 @@ impl Render for JunkPage {
             FlowPhase::Scanning | FlowPhase::Cleaning => vec![widgets::job_progress(
                 "junk-progress",
                 &flow.progress,
+                flow.phase.counters(),
                 Self::listener(cx, |this, _, cx| this.store(cx, Scans::cancel)),
                 cx,
             )],

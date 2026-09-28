@@ -17,6 +17,7 @@ use omc_proto::jobs::{
 
 use crate::engine;
 use crate::jobs;
+use crate::pages::widgets::parts::Counters;
 use crate::tokens::page;
 
 /// Where a flow is.
@@ -35,6 +36,17 @@ pub(crate) enum FlowPhase {
     Cleaned,
     /// The scan could not run; [`Flow::error`] says why.
     Failed,
+}
+
+impl FlowPhase {
+    /// What the progress counters of this phase count.
+    pub(crate) fn counters(self) -> Counters {
+        if self == Self::Cleaning {
+            Counters::Freed
+        } else {
+            Counters::Found
+        }
+    }
 }
 
 /// One scan and the cleans of its items.
@@ -183,6 +195,7 @@ impl Flow {
                         flow.error = Some(message.into());
                     }
                 }
+                Self::poll(host, key, cx);
                 cx.notify();
             });
             log_gone(applied);
@@ -266,6 +279,7 @@ impl Flow {
                         flow.error = Some(message.into());
                     }
                 }
+                Self::poll(host, key, cx);
                 cx.notify();
             });
             log_gone(applied);
@@ -337,8 +351,11 @@ impl Flow {
         cx.notify();
     }
 
-    /// Same daemon, new connection: job updates may have been lost, so ask for the
-    /// status of the running job.
+    /// Asks for the status of the running job, whose pushed updates may have been missed:
+    /// the daemon samples a job from its start, before its id reaches the flow (updates
+    /// for an unknown id are dropped), and a reconnect to the same daemon loses the
+    /// updates sent while disconnected. Progress only changing once (one large item being
+    /// removed) would otherwise stay at zero until the job ends.
     fn poll<H: FlowHost>(host: &mut H, key: usize, cx: &mut Context<'_, H>) {
         let Some(flow) = host.flow(key) else { return };
         let job = match flow.phase {

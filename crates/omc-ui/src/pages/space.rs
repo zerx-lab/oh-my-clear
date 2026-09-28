@@ -1792,6 +1792,7 @@ impl Render for SpacePage {
                 widgets::job_progress(
                     "space-progress",
                     &flow.progress,
+                    widgets::Counters::Found,
                     Self::listener(cx, |this, _, cx| this.store(cx, Scans::cancel)),
                     cx,
                 ),
@@ -1800,6 +1801,7 @@ impl Render for SpacePage {
             FlowPhase::Cleaning => vec![widgets::job_progress(
                 "space-progress",
                 &flow.progress,
+                widgets::Counters::Freed,
                 Self::listener(cx, |this, _, cx| this.store(cx, Scans::cancel)),
                 cx,
             )],

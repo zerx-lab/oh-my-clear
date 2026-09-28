@@ -1,6 +1,13 @@
 # Lessons learned
 <!-- Newest first. ≤40 active entries. Grep by tag. Promote when hits ≥ 2. Delete (git keeps history) when obsolete. Template: skill://memory -->
 
+## L-0039 Poll `job_status` right after `start_job`: job updates can beat the id to the UI
+- date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
+- tags: [ipc, ui, jobs]
+- trigger: UI code that starts a daemon job and follows its pushed `Event::Job` updates
+- lesson: the daemon samples progress from the job's first tick and only sends changes; events and responses reach the UI on separate paths, so updates arriving before `start_job` answers are dropped (unknown id). A job whose progress changes once (one large item removed) then shows zeros until it ends. Poll once after the id arrives (`slots::started`, `Flow::scan`/`clean`); removal must also count freed bytes per file, not per target.
+- evidence: crates/omc-engine/src/jobs.rs `drive` (interval + dedup); crates/omc-ui/src/pages/widgets/flow.rs `Flow::poll`; trash clean stuck at "正在准备… 0 B" then done
+
 ## L-0038 A PATH command can be the app's own shim: check scripts before treating a same-named CLI as a rival
 - date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
 - tags: [uninstall, macos, attribution]

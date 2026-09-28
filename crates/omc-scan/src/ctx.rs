@@ -18,6 +18,7 @@ pub struct JobCtx {
     phase: AtomicU8,
     items: AtomicU64,
     bytes: AtomicU64,
+    bytes_total: AtomicU64,
     done: AtomicU64,
     total: AtomicU64,
     dirs: AtomicU64,
@@ -60,6 +61,12 @@ impl JobCtx {
         self.bytes.store(n, Ordering::Relaxed);
     }
 
+    /// Sets how many bytes the work is expected to count (e.g. the size of the items a
+    /// clean removes).
+    pub fn set_bytes_total(&self, n: u64) {
+        self.bytes_total.store(n, Ordering::Relaxed);
+    }
+
     /// Sets the amount of countable work and resets `done`.
     pub fn set_total(&self, total: u64) {
         self.done.store(0, Ordering::Relaxed);
@@ -92,6 +99,7 @@ impl JobCtx {
             phase: phase_from_u8(self.phase.load(Ordering::Relaxed)),
             items: self.items.load(Ordering::Relaxed),
             bytes: self.bytes.load(Ordering::Relaxed),
+            bytes_total: self.bytes_total.load(Ordering::Relaxed),
             done: self.done.load(Ordering::Relaxed),
             total: self.total.load(Ordering::Relaxed),
             current: self.current.lock().clone(),

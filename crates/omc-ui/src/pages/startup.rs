@@ -24,8 +24,8 @@ use omc_proto::jobs::{ItemId, JobId, JobOutput, JobSpec};
 use super::widgets::parts::detail_ident;
 use super::widgets::slots::{self, JobSlot, SlotHost};
 use super::widgets::{
-    self, ConnChange, Connection, area_header, connection_notice, error_notice, job_progress,
-    muted_cell, page_column, tr,
+    self, ConnChange, Connection, Counters, area_header, connection_notice, error_notice,
+    job_progress, muted_cell, page_column, tr,
 };
 use crate::clean_settings::{self, CleanPrefs};
 use crate::format;
@@ -556,6 +556,7 @@ impl StartupPage {
             return job_progress(
                 "startup-list",
                 &self.list.progress,
+                Counters::Found,
                 Box::new(cx.listener(|this, _, _, cx| slots::cancel(this, Slot::List, cx))),
                 cx,
             );

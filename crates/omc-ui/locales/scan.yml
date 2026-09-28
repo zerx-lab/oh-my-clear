@@ -32,6 +32,15 @@ scan:
     found:
       en: "%{items} items checked · %{bytes} found"
       zh-CN: "已检查 %{items} 项 · 发现 %{bytes}"
+    freed:
+      en: "%{bytes} freed"
+      zh-CN: "已释放 %{bytes}"
+    freed_of:
+      en: "%{bytes} of %{total} freed"
+      zh-CN: "已释放 %{bytes} / %{total}"
+    items_of:
+      en: "%{done} of %{total} items"
+      zh-CN: "%{done} / %{total} 项"
   phase:
     starting:
       en: Starting…

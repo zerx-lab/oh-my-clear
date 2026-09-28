@@ -77,9 +77,7 @@ pub fn remove_with(target: &Target, guard: &Guard, ctx: &JobCtx, bin: &TrashBin)
         );
     };
     ctx.set_current(raw);
-    let removal = remove_path(Path::new(raw), target, guard, ctx, bin);
-    ctx.add_bytes(removal.freed);
-    removal
+    remove_path(Path::new(raw), target, guard, ctx, bin)
 }
 
 impl Removal {
@@ -171,9 +169,15 @@ fn remove_path(
             "not a directory".to_owned(),
         );
     }
-    match (target.method, target.contents_only) {
-        (DeleteMethod::Permanent, false) => remove_entry(path, &meta, guard, ctx, cutoff).removal,
-        (DeleteMethod::Permanent, true) => remove_children(path, guard, ctx, cutoff, true).removal,
+    // Freed bytes reach `ctx` as they go: file by file when deleting, per batch when
+    // trashing (the OS moves a batch in one call).
+    let trashed = match (target.method, target.contents_only) {
+        (DeleteMethod::Permanent, false) => {
+            return remove_entry(path, &meta, guard, ctx, cutoff).removal;
+        }
+        (DeleteMethod::Permanent, true) => {
+            return remove_children(path, guard, ctx, cutoff, true).removal;
+        }
         (DeleteMethod::Trash, false) => {
             let size = tree_size(path, &meta, ctx);
             if cutoff.is_some_and(|c| !size.older_than(c)) {
@@ -182,7 +186,9 @@ fn remove_path(
             trash_paths(vec![(path.to_path_buf(), size.bytes)], bin)
         }
         (DeleteMethod::Trash, true) => trash_children(path, guard, ctx, cutoff, bin),
-    }
+    };
+    ctx.add_bytes(trashed.freed);
+    trashed
 }
 
 /// The guard check. Whole paths must pass it; a folder whose *contents* are removed may be
@@ -243,7 +249,10 @@ fn remove_entry(
     // A hard link frees nothing while another name still points at the data.
     let size = if file.nlink <= 1 { file.size } else { 0 };
     match unlink(path, meta) {
-        Ok(()) => Removal::freed(size).into(),
+        Ok(()) => {
+            ctx.add_bytes(size);
+            Removal::freed(size).into()
+        }
         Err(err) if err.kind() == io::ErrorKind::NotFound => Tally::default(),
         Err(err) => Removal::io(path, &err).into(),
     }
@@ -259,7 +268,10 @@ fn remove_children(
     top: bool,
 ) -> Tally {
     let children = match list(dir) {
-        Ok(children) => children,
+        Ok(children) => {
+            ctx.entered_dir(dir);
+            children
+        }
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Tally::default(),
         Err(err) => return Removal::io(dir, &err).into(),
     };
@@ -685,13 +697,20 @@ mod tests {
         file(&d.join("x/y/z.bin"), 5_000);
         file(&d.join("top.bin"), 5_000);
         let ctx = JobCtx::new();
-        let r = remove(
+        let file_removal = remove(
             &Target::path(path_str(&f), 0, DeleteMethod::Permanent),
             &guard(),
             &ctx,
         );
-        assert!(r.failures.is_empty(), "file removed: {r:?}");
-        assert!(r.freed >= 10_000, "file bytes counted: {}", r.freed);
+        assert!(
+            file_removal.failures.is_empty(),
+            "file removed: {file_removal:?}"
+        );
+        assert!(
+            file_removal.freed >= 10_000,
+            "file bytes counted: {}",
+            file_removal.freed
+        );
         assert!(!f.exists(), "file gone");
         let r = remove(
             &Target::path(path_str(&d), 0, DeleteMethod::Permanent),
@@ -701,7 +720,11 @@ mod tests {
         assert!(r.failures.is_empty(), "dir removed: {r:?}");
         assert!(r.freed >= 10_000, "dir bytes counted: {}", r.freed);
         assert!(!d.exists(), "dir gone");
-        assert!(ctx.snapshot().bytes >= 20_000, "progress bytes");
+        assert_eq!(
+            ctx.snapshot().bytes,
+            file_removal.freed + r.freed,
+            "progress counts every freed byte exactly once"
+        );
     }
 
     #[test]
@@ -860,14 +883,16 @@ mod tests {
             dir: bin_dir.clone(),
             owner: None,
         };
+        let ctx = JobCtx::new();
         let r = remove_with(
             &Target::contents(path_str(&src), 0, DeleteMethod::Trash),
             &guard(),
-            &JobCtx::new(),
+            &ctx,
             &bin,
         );
         assert!(r.failures.is_empty(), "moved: {r:?}");
         assert!(r.freed >= 4_000, "moved bytes counted: {}", r.freed);
+        assert_eq!(ctx.snapshot().bytes, r.freed, "progress counts moved bytes");
         assert!(
             bin_dir.join("a 2.txt").is_file(),
             "collision gets a numbered name"

@@ -158,6 +158,10 @@ pub struct Progress {
     pub items: u64,
     /// Bytes found (scans) or freed (cleaning).
     pub bytes: u64,
+    /// Bytes `bytes` is expected to reach (cleaning: the size of the selected items, as
+    /// scanned); 0 = unknown.
+    #[serde(default)]
+    pub bytes_total: u64,
     /// Units finished out of `total`.
     #[serde(default)]
     pub done: u64,

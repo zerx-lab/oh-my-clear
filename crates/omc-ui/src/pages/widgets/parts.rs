@@ -180,30 +180,29 @@ pub(crate) fn error_notice(message: SharedString, on_dismiss: OnClick, cx: &App)
     )
 }
 
+/// What a job's counters count.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Counters {
+    /// A scan or listing: entries checked, bytes found.
+    Found,
+    /// A clean: bytes freed out of the selection's size, items removed.
+    Freed,
+}
+
 /// Live state of a running job, as a card: phase and cancel on the header line, a 4 px
-/// progress bar (determinate when the job counts its work), tabular counters and the
-/// current path.
+/// progress bar (determinate when the job counts its work; a clean also by freed bytes),
+/// tabular counters and the current path.
 pub(crate) fn job_progress(
     id: &'static str,
     progress: &Progress,
+    counters: Counters,
     on_cancel: OnClick,
     cx: &App,
 ) -> AnyElement {
     let theme = cx.theme();
-    let determinate = progress.total > 0;
-    let counters = if determinate {
-        rust_i18n::t!(
-            "scan.progress.counted",
-            done = format::count(progress.done),
-            total = format::count(progress.total),
-            bytes = format::bytes(progress.bytes)
-        )
-    } else {
-        rust_i18n::t!(
-            "scan.progress.found",
-            items = format::count(progress.items),
-            bytes = format::bytes(progress.bytes)
-        )
+    let (value, counters) = match counters {
+        Counters::Found => found_counters(progress),
+        Counters::Freed => freed_counters(progress),
     };
     ui::Card::new()
         .child(
@@ -234,7 +233,7 @@ pub(crate) fn job_progress(
                 )
                 .child(
                     ui::ProgressBar::new(ElementId::from(SharedString::from(format!("{id}-bar"))))
-                        .value(determinate.then(|| fraction(progress.done, progress.total))),
+                        .value(value),
                 )
                 .child(
                     h_flex()
@@ -247,7 +246,7 @@ pub(crate) fn job_progress(
                                 .line_height(text::SMALL_LINE_HEIGHT)
                                 .font_features(ui::tabular())
                                 .text_color(theme.foreground)
-                                .child(counters.to_string()),
+                                .child(counters),
                         )
                         .child(
                             div()
@@ -264,6 +263,61 @@ pub(crate) fn job_progress(
                 ),
         )
         .into_any_element()
+}
+
+/// Bar value (`None` = indeterminate) and counter text of a scan.
+fn found_counters(progress: &Progress) -> (Option<f32>, SharedString) {
+    if progress.total > 0 {
+        let text = rust_i18n::t!(
+            "scan.progress.counted",
+            done = format::count(progress.done),
+            total = format::count(progress.total),
+            bytes = format::bytes(progress.bytes)
+        );
+        return (
+            Some(fraction(progress.done, progress.total)),
+            text.to_string().into(),
+        );
+    }
+    let text = rust_i18n::t!(
+        "scan.progress.found",
+        items = format::count(progress.items),
+        bytes = format::bytes(progress.bytes)
+    );
+    (None, text.to_string().into())
+}
+
+/// Bar value and counter text of a clean. Freed bytes grow file by file, so one large
+/// item moves the bar too; items finish whole. The bar takes whichever is further (a
+/// failed item frees less than scanned, a partly freed one is not finished yet).
+fn freed_counters(progress: &Progress) -> (Option<f32>, SharedString) {
+    let by_bytes =
+        (progress.bytes_total > 0).then(|| fraction(progress.bytes, progress.bytes_total));
+    let by_items = (progress.total > 0).then(|| fraction(progress.done, progress.total));
+    let value = match (by_bytes, by_items) {
+        (Some(bytes), Some(items)) => Some(bytes.max(items)),
+        (one, other) => one.or(other),
+    };
+    let freed = if progress.bytes_total > 0 {
+        rust_i18n::t!(
+            "scan.progress.freed_of",
+            bytes = format::bytes(progress.bytes),
+            total = format::bytes(progress.bytes_total)
+        )
+    } else {
+        rust_i18n::t!("scan.progress.freed", bytes = format::bytes(progress.bytes))
+    };
+    let text = if progress.total > 1 {
+        let items = rust_i18n::t!(
+            "scan.progress.items_of",
+            done = format::count(progress.done),
+            total = format::count(progress.total)
+        );
+        format!("{freed} · {items}")
+    } else {
+        freed.into_owned()
+    };
+    (value, text.into())
 }
 
 /// Localised name of a job phase.
@@ -818,6 +872,37 @@ mod tests {
         assert!(
             (fraction(u64::MAX, u64::MAX) - 1.).abs() < f32::EPSILON,
             "huge values stay exact enough"
+        );
+    }
+
+    #[test]
+    fn a_clean_bar_follows_freed_bytes_within_one_item() {
+        let value = |progress: Progress| freed_counters(&progress).0;
+        assert_eq!(
+            value(Progress::default()),
+            None,
+            "nothing known yet: indeterminate"
+        );
+        let one_item = Progress {
+            bytes: 1_000,
+            bytes_total: 4_000,
+            total: 1,
+            ..Progress::default()
+        };
+        assert!(
+            value(one_item).is_some_and(|v| (v - 0.25).abs() < 1e-6),
+            "a single large item moves the bar by bytes"
+        );
+        let short = Progress {
+            bytes: 0,
+            bytes_total: 4_000,
+            done: 1,
+            total: 2,
+            ..Progress::default()
+        };
+        assert!(
+            value(short).is_some_and(|v| (v - 0.5).abs() < 1e-6),
+            "finished items count when they freed less than scanned"
         );
     }
 

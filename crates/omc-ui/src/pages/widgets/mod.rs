@@ -14,10 +14,11 @@ pub(crate) mod slots;
 
 pub(crate) use flow::{ConnChange, Connection, Flow, FlowHost, FlowPhase, Throttle, release};
 pub(crate) use parts::{
-    CleanConfirm, OnClick, Removal, Tone, area_header, card_body, check, chip, clean_button,
-    clean_report, column_header, confirm_clean, connection_notice, denied_notice, empty_card,
-    error_notice, fraction, idle_card, idle_scan_button, job_progress, list_frame, muted_cell,
-    notice, page_column, phase_label, privacy_button, rescan_button, size_bar, size_cell, tr,
+    CleanConfirm, Counters, OnClick, Removal, Tone, area_header, card_body, check, chip,
+    clean_button, clean_report, column_header, confirm_clean, connection_notice, denied_notice,
+    empty_card, error_notice, fraction, idle_card, idle_scan_button, job_progress, list_frame,
+    muted_cell, notice, page_column, phase_label, privacy_button, rescan_button, size_bar,
+    size_cell, tr,
 };
 
 /// Opens pages headless (no daemon: the engine reports it unavailable).
