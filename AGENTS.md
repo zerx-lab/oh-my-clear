@@ -56,6 +56,7 @@ Aliases and other commands:
   - Terminal: `cargo nextest run -p <crate> --debugger "rust-lldb --" <test>` or `rust-lldb target/debug/oh-my-clear`.
   - Dependencies carry only line tables. To step into one, rebuild with `CARGO_PROFILE_DEV_PACKAGE_<NAME>_DEBUG=full`.
 - **Profiling build**: `cargo build --profile profiling -p oh-my-clear` gives release speed with full symbols (Instruments or samply).
+- **macOS DMG (Apple silicon)**: `scripts/package-macos.sh [--no-notarize] [--skip-build]` builds `aarch64-apple-darwin` release, assembles the app + daemon helper bundle, signs with the keychain's Developer ID Application identity (hardened runtime), and notarizes/staples via the App Store Connect API key (`OMC_ASC_KEY`/`OMC_ASC_KEY_ID`/`OMC_ASC_ISSUER`); output `dist/oh-my-clear-<version>-arm64.dmg`.
 - **CI tests**: `cargo nextest run --workspace --all-features --locked --profile ci` writes `target/nextest/ci/junit.xml`.
 - **New crate**: `cargo new-crate <area> "<one-line purpose>"` creates `crates/omc-<area>` with workspace lints and `doctest = false`.
 - **TTSR rules**: maintain them with `omp ttsr list` and `omp ttsr test --rule .omp/rules/<r>.md --source tool --tool edit --path crates/x/src/lib.rs '<snippet>'`.
