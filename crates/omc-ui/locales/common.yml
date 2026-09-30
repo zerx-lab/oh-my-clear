@@ -12,3 +12,28 @@ time:
   years:
     en: "%{n} years ago"
     zh-CN: "%{n} 年前"
+  rel:
+    soon:
+      en: any moment now
+      zh-CN: 即将开始
+    in_minutes:
+      en: "in %{n} min"
+      zh-CN: "%{n} 分钟后"
+    in_hours:
+      en: "in %{n} h"
+      zh-CN: "%{n} 小时后"
+    in_days:
+      en: "in %{n} days"
+      zh-CN: "%{n} 天后"
+    just_now:
+      en: just now
+      zh-CN: 刚刚
+    minutes_ago:
+      en: "%{n} min ago"
+      zh-CN: "%{n} 分钟前"
+    hours_ago:
+      en: "%{n} h ago"
+      zh-CN: "%{n} 小时前"
+    days_ago:
+      en: "%{n} days ago"
+      zh-CN: "%{n} 天前"

@@ -1,7 +1,10 @@
-//! The tray's Open: brings an attached UI forward ([`Event::Activate`]) or launches the GUI
-//! that belongs to this daemon ([`omc_ipc::layout`]). The GUI exits with its last window,
-//! so a closed UI costs no memory; this is how it comes back.
+//! The tray's Open and the prompt handoff of automation runs (ADR 0024): bring an attached
+//! UI forward ([`Event::Activate`]) or show the prompt for a run ([`Event::Prompt`]), or
+//! launch the GUI that belongs to this daemon ([`omc_ipc::layout`]; with `--prompt <run>` it
+//! opens only that run's prompt window). The GUI exits with its last window, so a closed
+//! UI costs no memory; this is how it comes back.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -9,6 +12,7 @@ use std::time::{Duration, Instant};
 use omc_engine::Engine;
 use omc_ipc::RuntimeDir;
 use omc_proto::Event;
+use omc_proto::rules::RunId;
 
 /// A launched UI that has not attached yet counts as starting for this long: repeated
 /// clicks meanwhile do not start a second one.
@@ -38,6 +42,22 @@ impl UiLauncher {
             self.starting = None;
             return;
         }
+        self.launch_unless_starting(&[]);
+    }
+
+    /// Asks for the user's decision on `run`: every attached UI opens the prompt window;
+    /// with none attached the GUI is launched with `--prompt <run>`. A UI that is already
+    /// starting is not raced: on start every GUI asks the daemon for the runs waiting for
+    /// an answer, so no prompt is lost.
+    pub(crate) fn prompt(&mut self, engine: &Engine, run: RunId) {
+        if engine.notify_ui(Event::Prompt { run }) > 0 {
+            self.starting = None;
+            return;
+        }
+        self.launch_unless_starting(&[OsString::from("--prompt"), OsString::from(run.to_string())]);
+    }
+
+    fn launch_unless_starting(&mut self, args: &[OsString]) {
         if let Some((since, child)) = &mut self.starting
             && since.elapsed() < LAUNCH_GRACE
             && matches!(child.try_wait(), Ok(None))
@@ -45,13 +65,13 @@ impl UiLauncher {
             tracing::info!("the UI is still starting");
             return;
         }
-        match self.launch() {
+        match self.launch(args) {
             Ok(child) => self.starting = Some((Instant::now(), child)),
             Err(err) => tracing::error!(exe = ?self.exe, "cannot launch the UI: {err}"),
         }
     }
 
-    fn launch(&self) -> std::io::Result<tokio::process::Child> {
+    fn launch(&self, args: &[OsString]) -> std::io::Result<tokio::process::Child> {
         let Some(exe) = self.exe.as_deref().filter(|exe| exe.is_file()) else {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -61,7 +81,8 @@ impl UiLauncher {
         let log = std::fs::File::create(self.dir.ui_log_file())?;
         let child = omc_ipc::spawn_detached(|| {
             let mut cmd = tokio::process::Command::new(exe);
-            cmd.current_dir(self.dir.path())
+            cmd.args(args)
+                .current_dir(self.dir.path())
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::from(log.try_clone()?))
@@ -70,7 +91,7 @@ impl UiLauncher {
                 .env_remove("CARGO_PKG_NAME");
             Ok(cmd)
         })?;
-        tracing::info!(exe = %exe.display(), pid = ?child.id(), "launched the UI");
+        tracing::info!(exe = %exe.display(), pid = ?child.id(), ?args, "launched the UI");
         Ok(child)
     }
 }

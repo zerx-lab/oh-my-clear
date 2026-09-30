@@ -2,7 +2,8 @@
 //! and the [`EngineHandle`], held by one [`Engine`] entity in a GPUI global. A single
 //! foreground task drains the client's event channel and re-emits every [`ClientEvent`]
 //! from the entity; views subscribe instead of owning channels. Daemon events from the tray
-//! (ADR 0020) act on the app itself: `activate` brings the main window forward, `quit` quits.
+//! (ADR 0020) act on the app itself: `activate` brings the main window forward, `quit` quits;
+//! `prompt` (ADR 0024) opens the prompt window of a run that needs a decision.
 
 use std::path::PathBuf;
 
@@ -86,8 +87,17 @@ impl Engine {
                                 tracing::info!("quit from the tray");
                                 cx.defer(|cx| cx.quit());
                             }
+                            ClientEvent::Daemon(Event::Prompt { run }) => {
+                                let run = *run;
+                                cx.defer(move |cx| crate::prompt::open(run, cx));
+                            }
                             // Routed by the views that subscribe to the engine.
-                            ClientEvent::Daemon(Event::Job(_) | Event::SettingsChanged) => {}
+                            ClientEvent::Daemon(
+                                Event::Job(_)
+                                | Event::SettingsChanged
+                                | Event::RulesChanged
+                                | Event::Run(_),
+                            ) => {}
                         }
                         cx.emit(event);
                     }

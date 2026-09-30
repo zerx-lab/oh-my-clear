@@ -34,6 +34,8 @@ const SAVE_DEBOUNCE: Duration = Duration::from_millis(300);
 /// Stable keys of [`UiSettings`] inside `Settings.ui`.
 mod key {
     pub(super) const LANGUAGE: &str = "language";
+    /// Comma-separated ids of the folded sidebar groups (empty = all open).
+    pub(super) const COLLAPSED_GROUPS: &str = "sidebar.collapsed_groups";
     pub(super) const APPEARANCE: &str = "theme.appearance";
     pub(super) const LIGHT: &str = "theme.light";
     pub(super) const DARK: &str = "theme.dark";
@@ -374,6 +376,14 @@ pub(crate) fn ui_map(s: &UiSettings) -> BTreeMap<String, String> {
     let style = &s.theme.style;
     [
         (key::LANGUAGE, s.language.key().to_owned()),
+        (
+            key::COLLAPSED_GROUPS,
+            s.collapsed_groups
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
         (key::APPEARANCE, s.theme.appearance.key().to_owned()),
         (key::LIGHT, s.theme.light_theme.to_string()),
         (key::DARK, s.theme.dark_theme.to_string()),
@@ -409,6 +419,13 @@ pub(crate) fn apply_ui_map(
     };
     if let Some(v) = get(key::LANGUAGE).and_then(Language::from_key) {
         s.language = v;
+    }
+    if let Some(v) = get(key::COLLAPSED_GROUPS) {
+        s.collapsed_groups = v
+            .split(',')
+            .filter(|id| crate::nav::NAV.iter().any(|g| g.id() == Some(*id)))
+            .map(str::to_owned)
+            .collect();
     }
     let theme = &mut s.theme;
     if let Some(v) = get(key::APPEARANCE).and_then(Appearance::from_key) {
@@ -505,6 +522,8 @@ mod tests {
         prefs.theme.style.ui_font_size = 18;
         prefs.theme.style.mono_font_size = 11;
         prefs.theme.style.scrollbar = ScrollbarVisibility::Always;
+        prefs.collapsed_groups.insert("storage".to_owned());
+        prefs.collapsed_groups.insert("automation".to_owned());
         let map = ui_map(&prefs);
         let mut restored = UiSettings::default();
         apply_ui_map(&map, &mut restored, |_, _| true);
@@ -520,6 +539,10 @@ mod tests {
             ("theme.dark", "Missing Preset"),
             ("language", "zh-CN"),
             ("future.key", "x"),
+            (
+                "sidebar.collapsed_groups",
+                "storage,no_such_group,,applications",
+            ),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
@@ -528,9 +551,13 @@ mod tests {
         apply_ui_map(&map, &mut s, |_, name| name != "Missing Preset");
         let expected = UiSettings {
             language: Language::SimplifiedChinese,
+            collapsed_groups: ["storage", "applications"].map(str::to_owned).into(),
             ..UiSettings::default()
         };
-        assert_eq!(s, expected, "only the valid language applies");
+        assert_eq!(
+            s, expected,
+            "only the valid language and the known folded groups apply"
+        );
     }
 
     #[test]

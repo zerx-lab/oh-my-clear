@@ -7,16 +7,17 @@ use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{ActiveTheme as _, IconName, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, AppContext as _, Context, Entity, FocusHandle, InteractiveElement as _,
+    AnyElement, AppContext as _, Context, Entity, FocusHandle, Global, InteractiveElement as _,
     IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Subscription, Window, div,
+    Styled as _, Subscription, WeakEntity, Window, div,
 };
 use omc_ipc::client::ConnState;
 
-use crate::actions::ToggleSidebar;
+use crate::actions::{OpenCommandPalette, ToggleSidebar};
 use crate::engine::{self, Engine};
 use crate::nav::Category;
-use crate::pages::{Navigate, Pages};
+use crate::pages::{Automate, Navigate, Pages};
+use crate::palette::{Palette, PaletteEvent, Target};
 use crate::sidebar::Sidebar;
 use crate::theme;
 use crate::title_bar::AppTitleBar;
@@ -30,7 +31,28 @@ pub struct MainView {
     pages: Pages,
     /// The area whose page was last told it is on screen.
     shown: Category,
+    /// The open command palette.
+    palette: Option<Entity<Palette>>,
+    palette_subscription: Option<Subscription>,
     _subscriptions: Vec<Subscription>,
+}
+
+/// The open main view, so other windows (the prompt window's "Open oh-my-clear") can show
+/// an area in it.
+struct MainViewRef(WeakEntity<MainView>);
+
+impl Global for MainViewRef {}
+
+/// Brings the main window forward (reopening it when only other windows are left) and shows
+/// `category` in it. Call outside any window update (e.g. from `cx.defer`).
+pub(crate) fn show_in_main_window(category: Category, cx: &mut gpui_kit::App) {
+    crate::window::activate_main_window(cx);
+    let main = cx
+        .try_global::<MainViewRef>()
+        .and_then(|global| global.0.upgrade());
+    if let Some(main) = main {
+        main.update(cx, |this, cx| this.show(category, cx));
+    }
 }
 
 impl std::fmt::Debug for MainView {
@@ -49,11 +71,12 @@ impl MainView {
         let focus_handle = cx.focus_handle();
         focus_handle.focus(window, cx);
         let engine = engine::entity(cx);
-        let sidebar = cx.new(|_| Sidebar::default());
+        crate::prompt::attach(cx);
+        let sidebar = cx.new(Sidebar::new);
         let pages = Pages::new(window, cx);
         let shown = sidebar.read(cx).selected();
         pages.set_visible(shown, true, cx);
-        let subscriptions = vec![
+        let mut subscriptions = vec![
             cx.observe_window_appearance(window, |_, window, cx| {
                 theme::system_appearance_changed(window.appearance(), cx);
             }),
@@ -83,18 +106,83 @@ impl MainView {
                     .update(cx, |sidebar, cx| sidebar.select(category, cx));
             }),
         ];
+        // An area page asks to automate itself ("Clean automatically…").
+        for page in pages.junk_pages() {
+            subscriptions.push(cx.subscribe_in(
+                page,
+                window,
+                |this, _, Automate(category), window, cx| {
+                    this.automate(*category, window, cx);
+                },
+            ));
+        }
+        let this = cx.entity().downgrade();
+        cx.set_global(MainViewRef(this));
         Self {
             focus_handle,
             engine,
             sidebar,
             pages,
             shown,
+            palette: None,
+            palette_subscription: None,
             _subscriptions: subscriptions,
         }
     }
 
     fn toggle_sidebar(&mut self, cx: &mut Context<'_, Self>) {
         self.sidebar.update(cx, Sidebar::toggle);
+    }
+
+    /// Shows the page of `category`.
+    pub(crate) fn show(&mut self, category: Category, cx: &mut Context<'_, Self>) {
+        self.sidebar
+            .update(cx, |sidebar, cx| sidebar.select(category, cx));
+    }
+
+    /// Opens the Rules page with an unsaved rule that automates `category`.
+    fn automate(&mut self, category: Category, window: &mut Window, cx: &mut Context<'_, Self>) {
+        self.show(Category::Rules, cx);
+        self.pages
+            .rules
+            .update(cx, |page, cx| page.start_from_area(category, window, cx));
+    }
+
+    /// Opens the command palette, or closes it when it is open.
+    fn toggle_palette(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        if self.palette.is_some() {
+            self.close_palette(window, cx);
+            return;
+        }
+        let palette = cx.new(|cx| Palette::new(window, cx));
+        self.palette_subscription = Some(cx.subscribe_in(
+            &palette,
+            window,
+            |this, _, event: &PaletteEvent, window, cx| this.on_palette(*event, window, cx),
+        ));
+        self.palette = Some(palette);
+        cx.notify();
+    }
+
+    fn close_palette(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
+        self.palette = None;
+        self.palette_subscription = None;
+        self.focus_handle.focus(window, cx);
+        cx.notify();
+    }
+
+    fn on_palette(&mut self, event: PaletteEvent, window: &mut Window, cx: &mut Context<'_, Self>) {
+        self.close_palette(window, cx);
+        match event {
+            PaletteEvent::Dismiss => {}
+            PaletteEvent::Choose(Target::Page(category)) => self.show(category, cx),
+            PaletteEvent::Choose(Target::Rule(id)) => {
+                self.show(Category::Rules, cx);
+                self.pages
+                    .rules
+                    .update(cx, |page, cx| page.select_rule(id, window, cx));
+            }
+        }
     }
 
     fn render_title_bar(collapsed: bool, cx: &mut Context<'_, Self>) -> AnyElement {
@@ -190,6 +278,9 @@ impl Render for MainView {
             .key_context("MainWindow")
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &ToggleSidebar, _, cx| this.toggle_sidebar(cx)))
+            .on_action(cx.listener(|this, _: &OpenCommandPalette, window, cx| {
+                this.toggle_palette(window, cx);
+            }))
             .relative()
             .size_full()
             .child(
@@ -199,6 +290,7 @@ impl Render for MainView {
                     .child(content),
             )
             .child(Self::render_title_bar(collapsed, cx))
+            .children(self.palette.clone())
     }
 }
 
@@ -208,6 +300,9 @@ mod tests {
     use gpui_kit::{AnyWindowHandle, TestAppContext};
 
     use super::MainView;
+    use crate::nav::Category;
+    use crate::pages::Automate;
+    use crate::pages::rules::Draft;
 
     fn sidebar_collapsed(window: AnyWindowHandle, cx: &mut TestAppContext) -> Option<bool> {
         cx.update(|cx| {
@@ -252,6 +347,115 @@ mod tests {
             sidebar_collapsed(window, cx),
             Some(false),
             "secondary-b shows it again"
+        );
+    }
+
+    /// (selected page, palette open) of the main view in `window`.
+    fn state(window: AnyWindowHandle, cx: &mut TestAppContext) -> Option<(Category, bool)> {
+        cx.update(|cx| {
+            window
+                .update(cx, |root, _, cx| {
+                    let main = root
+                        .downcast::<Root>()
+                        .ok()?
+                        .read(cx)
+                        .view()
+                        .clone()
+                        .downcast::<MainView>()
+                        .ok()?;
+                    let main = main.read(cx);
+                    Some((main.sidebar.read(cx).selected(), main.palette.is_some()))
+                })
+                .ok()
+                .flatten()
+        })
+    }
+
+    #[gpui_kit::test]
+    fn the_palette_opens_moves_with_the_arrows_and_jumps_on_enter(cx: &mut TestAppContext) {
+        let opened = cx.update(|cx| crate::init(cx).and_then(|()| crate::open_main_window(cx)));
+        assert!(opened.is_ok(), "main window opens: {opened:?}");
+        let Ok(window) = opened else { return };
+        cx.run_until_parked();
+        assert_eq!(
+            state(window, cx),
+            Some((Category::Overview, false)),
+            "the overview shows, no palette"
+        );
+
+        cx.simulate_keystrokes(window, "secondary-k");
+        assert_eq!(
+            state(window, cx),
+            Some((Category::Overview, true)),
+            "secondary-k opens the palette"
+        );
+
+        cx.simulate_keystrokes(window, "escape");
+        assert_eq!(
+            state(window, cx),
+            Some((Category::Overview, false)),
+            "escape closes it although the text input has the focus"
+        );
+
+        // Entries are in sidebar order: Overview, System Junk, Browser Data, …
+        cx.simulate_keystrokes(window, "secondary-k down down enter");
+        assert_eq!(
+            state(window, cx),
+            Some((Category::BrowserData, false)),
+            "two arrows down and Enter go to the third page and close the palette"
+        );
+
+        cx.simulate_keystrokes(window, "secondary-k up enter");
+        assert_eq!(
+            state(window, cx),
+            Some((Category::Activity, false)),
+            "up from the first entry wraps to the last page"
+        );
+    }
+
+    #[gpui_kit::test]
+    fn clean_automatically_opens_the_rules_page_with_the_unsaved_template(cx: &mut TestAppContext) {
+        let opened = cx.update(|cx| crate::init(cx).and_then(|()| crate::open_main_window(cx)));
+        assert!(opened.is_ok(), "main window opens: {opened:?}");
+        let Ok(window) = opened else { return };
+        cx.run_until_parked();
+
+        let asked = cx.update(|cx| {
+            window
+                .update(cx, |root, _, cx| {
+                    let main = root
+                        .downcast::<Root>()
+                        .ok()?
+                        .read(cx)
+                        .view()
+                        .clone()
+                        .downcast::<MainView>()
+                        .ok()?;
+                    let junk = main.read(cx).pages.junk_pages().nth(2)?.clone();
+                    junk.update(cx, |_, cx| cx.emit(Automate(Category::DeveloperJunk)));
+                    Some(main)
+                })
+                .ok()
+                .flatten()
+        });
+        cx.run_until_parked();
+        let Some(main) = asked else {
+            panic!("the developer junk page is the third area page");
+        };
+        let (selected, draft) = cx.update(|cx| {
+            let main = main.read(cx);
+            (
+                main.sidebar.read(cx).selected(),
+                main.pages.rules.read(cx).draft().cloned(),
+            )
+        });
+        assert_eq!(selected, Category::Rules, "the Rules page is shown");
+        assert_eq!(
+            draft,
+            Some(Draft::template(
+                rust_i18n::t!("rules.template.name").to_string()
+            )),
+            "the editor holds the unsaved 'clean old build output' template"
         );
     }
 }

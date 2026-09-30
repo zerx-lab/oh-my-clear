@@ -15,7 +15,8 @@
 //!   No tray, lock or IPC; logs to stderr; exit code 0 when the result file was written.
 //!
 //! Modules: [`serve`] (the daemon loop), [`host`] (the main thread: event loop + tray
-//! lifetime), [`tray`] (icon, menu, events), [`ui`] (launching / activating the GUI).
+//! lifetime), [`tray`] (icon, menu incl. pending automation runs, events), [`ui`] (launching /
+//! activating the GUI; prompting for automation runs, ADR 0024).
 
 use std::ffi::OsString;
 use std::path::Path;

@@ -16,6 +16,7 @@ use tokio::io::AsyncWrite;
 use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 use crate::jobs::Jobs;
+use crate::rules::{Automation, Zone};
 use crate::settings::SettingsStore;
 use crate::{Error, Result};
 
@@ -50,6 +51,7 @@ struct Inner {
     shutdown: watch::Sender<bool>,
     settings: SettingsStore,
     jobs: Jobs,
+    automation: Automation,
 }
 
 /// How an [`Engine`] is set up.
@@ -58,6 +60,9 @@ pub struct EngineConfig {
     /// Where settings are persisted (see [`crate::default_settings_path`]); `None` keeps
     /// them in memory only.
     pub settings_path: Option<PathBuf>,
+    /// Where automation rules and their history are persisted (see
+    /// [`crate::default_rules_path`]); `None` keeps them in memory only.
+    pub rules_path: Option<PathBuf>,
 }
 
 impl Default for Engine {
@@ -67,13 +72,19 @@ impl Default for Engine {
 }
 
 impl Engine {
-    /// An engine with in-memory settings.
+    /// An engine with in-memory settings and rules.
     pub fn new() -> Self {
         Self::with_config(EngineConfig::default())
     }
 
-    /// An engine per `config`. Reads the settings file (blocking; call at startup).
+    /// An engine per `config`. Reads the settings and rules files (blocking; call at
+    /// startup). Rules run only after [`Self::start_automation`].
     pub fn with_config(config: EngineConfig) -> Self {
+        Self::with_zone(config, Zone::Local)
+    }
+
+    /// [`Self::with_config`] with rules scheduled in `zone` (tests use a fixed offset).
+    pub(crate) fn with_zone(config: EngineConfig, zone: Zone) -> Self {
         let settings = config
             .settings_path
             .map_or_else(SettingsStore::in_memory, SettingsStore::load);
@@ -85,6 +96,7 @@ impl Engine {
                 shutdown: watch::Sender::new(false),
                 settings,
                 jobs: Jobs::default(),
+                automation: Automation::load(config.rules_path, zone),
             }),
         }
     }
@@ -97,6 +109,10 @@ impl Engine {
         &self.inner.jobs
     }
 
+    pub(crate) fn automation(&self) -> &Automation {
+        &self.inner.automation
+    }
+
     /// Validates and persists `settings` on a blocking thread, then tells every UI.
     async fn put_settings(&self, settings: Settings) -> Result<(), RpcError> {
         let engine = self.clone();
@@ -106,7 +122,7 @@ impl Engine {
                 self.notify_ui(Event::SettingsChanged);
                 Ok(())
             }
-            Ok(Err(err @ Error::SettingsIo { .. })) => {
+            Ok(Err(err @ Error::FileIo { .. })) => {
                 tracing::warn!(%err, "cannot save settings");
                 Err(RpcError::new(ErrorCode::Io, err.to_string()))
             }
@@ -277,6 +293,16 @@ impl Session {
                 .jobs()
                 .space_children(job, node)
                 .map(Response::SpaceNodes),
+            Request::ListRules => Ok(Response::Rules(engine.list_rules())),
+            Request::PutRule(rule) => engine.put_rule(rule).await.map(Response::Rule),
+            Request::DeleteRule { id } => engine.delete_rule(id).await.map(|()| Response::Unit),
+            Request::RunRule { id } => engine.run_rule(id).await.map(Response::Run),
+            Request::ListRuns => Ok(Response::Runs(engine.list_runs())),
+            Request::GetRun { id } => engine.get_run(id).map(Response::Run),
+            Request::DecideRun { id, decision } => engine
+                .decide_run(id, decision)
+                .await
+                .map(|()| Response::Unit),
         };
         self.reply(id, res).await
     }
@@ -653,6 +679,7 @@ mod tests {
         let path = dir.join("nested").join("settings.toml");
         let config = EngineConfig {
             settings_path: Some(path.clone()),
+            ..EngineConfig::default()
         };
         let engine = Engine::with_config(config.clone());
         let mut ui = Client::connect(&engine, ClientKind::Ui).await?;
@@ -950,4 +977,6 @@ mod tests {
         let _ignored = std::fs::remove_dir_all(&root);
         Ok(())
     }
+
+    mod automation;
 }

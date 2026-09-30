@@ -27,7 +27,7 @@ use omc_scan::junk::JunkArea;
 use omc_scan::space::SpaceTree;
 use omc_scan::{JobCtx, Scanned, WalkOptions, Walker};
 use parking_lot::Mutex;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, watch};
 
 use crate::Engine;
 
@@ -89,6 +89,8 @@ struct JobEntry {
     output: Option<Arc<Retained>>,
     /// Finish order, for eviction (0 while running).
     finished: u64,
+    /// Exempt from eviction (see [`Jobs::pin`]).
+    pinned: bool,
 }
 
 /// The job table.
@@ -99,6 +101,8 @@ pub(crate) struct Jobs {
     table: Mutex<HashMap<JobId, JobEntry>>,
     /// One permit: mutating jobs (clean, uninstall, startup change) run one at a time.
     mutating: Arc<Semaphore>,
+    /// Bumped whenever a job finishes (see [`Jobs::wait_finished`]).
+    finished: watch::Sender<u64>,
 }
 
 impl Default for Jobs {
@@ -108,6 +112,7 @@ impl Default for Jobs {
             finish_seq: AtomicU64::new(1),
             table: Mutex::new(HashMap::new()),
             mutating: Arc::new(Semaphore::new(1)),
+            finished: watch::Sender::new(0),
         }
     }
 }
@@ -212,12 +217,14 @@ impl Jobs {
                 state: JobState::Running,
                 output: None,
                 finished: 0,
+                pinned: false,
             },
         );
         (id, ctx)
     }
 
-    /// Records the end of a job and evicts the oldest finished jobs beyond the limit.
+    /// Records the end of a job and evicts the oldest finished jobs beyond the limit
+    /// (pinned jobs neither count nor get evicted).
     fn finish(&self, job: JobId, state: JobState, output: Option<Retained>) {
         let seq = self.finish_seq.fetch_add(1, Ordering::Relaxed);
         let mut table = self.table.lock();
@@ -226,10 +233,11 @@ impl Jobs {
             entry.output = output.map(Arc::new);
             entry.finished = seq;
         }
-        while table.values().filter(|e| e.state.is_finished()).count() > MAX_FINISHED {
+        let evictable = |e: &JobEntry| e.state.is_finished() && !e.pinned;
+        while table.values().filter(|e| evictable(e)).count() > MAX_FINISHED {
             let Some(oldest) = table
                 .iter()
-                .filter(|(_, e)| e.state.is_finished())
+                .filter(|(_, e)| evictable(e))
                 .min_by_key(|(_, e)| e.finished)
                 .map(|(id, e)| (*id, e.kind))
             else {
@@ -237,6 +245,49 @@ impl Jobs {
             };
             tracing::debug!(job = oldest.0, kind = ?oldest.1, "evicting finished job");
             table.remove(&oldest.0);
+        }
+        drop(table);
+        self.finished.send_replace(seq);
+    }
+
+    /// Keeps a finished job (and its output) out of eviction until it is dropped with
+    /// [`Self::discard`]. Automation runs pin the scan a pending run will clean.
+    pub(crate) fn pin(&self, job: JobId) {
+        if let Some(entry) = self.table.lock().get_mut(&job) {
+            entry.pinned = true;
+        }
+    }
+
+    /// Drops a job the daemon started itself: cancels it when it still runs (its own task
+    /// keeps the entry until it ends, so a running job is only asked to stop), forgets it
+    /// otherwise. Unknown ids are ignored.
+    pub(crate) fn discard(&self, job: JobId) {
+        let mut table = self.table.lock();
+        let Some(entry) = table.get_mut(&job) else {
+            return;
+        };
+        entry.pinned = false;
+        if entry.state.is_finished() {
+            table.remove(&job);
+        } else {
+            entry.ctx.cancel();
+        }
+    }
+
+    /// Waits until `job` is finished; its final state. `not_found` for unknown ids.
+    pub(crate) async fn wait_finished(&self, job: JobId) -> Result<JobState, RpcError> {
+        let mut changes = self.finished.subscribe();
+        loop {
+            {
+                let table = self.table.lock();
+                let entry = table.get(&job).ok_or_else(|| not_found(job))?;
+                if entry.state.is_finished() {
+                    return Ok(entry.state.clone());
+                }
+            }
+            if changes.changed().await.is_err() {
+                return Err(internal("the job table was dropped"));
+            }
         }
     }
 }

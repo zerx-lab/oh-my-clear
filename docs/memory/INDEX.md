@@ -24,11 +24,12 @@ Memory records development rules and their reasons — never progress, milestone
 - 0013 UI foundation: gpui-component JSON theme presets + app style layer (OKLCH accent), `UiSettings` global, rust-i18n en/zh-CN following the OS, TitleBar-based chrome, every command an Action (accepted; amends 0011 colour authoring; chrome amended by 0019)
 - 0018 App icons from `assets/brand/` (render.sh): macOS `.app` via `cargo omc` (no `unsafe` Dock API), Windows icon resource 1 via embed-resource, Linux X11 `WindowOptions::icon` + desktop entry for Wayland (accepted)
 - 0017 Product = oh-my-clear, a cross-platform (macOS/Windows/Linux) system cleaner; agent-orchestration scope, crates and ADRs removed; `omc-*` crates, no `unsafe` crate (accepted)
-- 0019 Main window: bare transparent titlebar (window chrome only) over a full-height sidebar of cleaning areas (`nav::NAV`), spring-collapsed off-canvas, settings in its footer (accepted; amends 0013 chrome)
+- 0019 Main window: bare transparent titlebar (window chrome only) over a full-height sidebar of cleaning areas (`nav::NAV`), spring-collapsed off-canvas, settings in its footer (accepted; amends 0013 chrome; taxonomy amended by 0024)
 - 0020 System tray in the daemon: tray-icon (+ tao event loop on macOS/Windows, pure-Rust ksni on Linux), `CONFINED` to the daemon; UI exits with its last window, tray Open/Quit via pushed `Event`s; macOS daemon = helper bundle (accepted; amends 0008 lifecycle)
 - 0021 Cleaning engine: daemon jobs (`start_job` → `job` events → `job_result`), removal only by item ids of retained scans, `omc_scan::Guard` on every path, one elevated helper run per clean, daemon-owned `settings.toml`; crates omc-scan/omc-apps (accepted)
 - 0022 UI v2: app-owned `omc_ui::ui` components on gpui-base primitives, control scale 24/28/32, one badge per row, default oh-my-clear theme; shared scan store with per-area freshness/auto-scan (accepted; builds on 0011/0013)
 - 0023 App attribution by evidence (paths compiled into app binaries via memchr, open files, receipts; rival/foreign-CLI penalties), friendly names + icons for ids (`ident`/`icon` wire fields), treemap Space Lens (accepted)
+- 0024 Automation = daemon-owned rules (trigger+scope+filter+action+confirm) run via scan/clean jobs, `rules.toml`, wall-clock scheduler, cargo-lock deferral; prompt window via `Event::Prompt` / `oh-my-clear --prompt`; Automation sidebar group, dashboard Overview, ⌘K palette (accepted; amends 0019 taxonomy)
 
 ## Hot lessons
 - L-0001 Never create .omp/AGENTS.md or CLAUDE.md — they shadow/compete with root AGENTS.md (omp)

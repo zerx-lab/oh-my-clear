@@ -1,6 +1,20 @@
 # Lessons learned
 <!-- Newest first. ≤40 active entries. Grep by tag. Promote when hits ≥ 2. Delete (git keeps history) when obsolete. Template: skill://memory -->
 
+## L-0041 Engine tests that scan developer junk must pass `file_roots`/`exclude` for a temp fixture
+- date: 2026-09-30 · verified: 2026-09-30 · hits: 1 · status: active
+- tags: [testing, scanning, engine]
+- trigger: an engine/automation test that runs a `developer_junk` (or other home-rooted) scan
+- lesson: without injected roots the scan walks the real home (≈10 s, nondeterministic, touches user data); with them it takes ≈0.1 s.
+- evidence: `crates/omc-engine/src/engine/tests/automation.rs` (`scan_only`)
+
+## L-0040 After moving/renaming the repo, `cargo clean -p xtask`: `env!("CARGO_MANIFEST_DIR")` stays baked in
+- date: 2026-09-30 · verified: 2026-09-30 · hits: 1 · status: active
+- tags: [build, xtask]
+- trigger: `cargo xtask layers` fails with `…/<old-dir>/apps: No such file or directory`
+- lesson: the cached xtask binary keeps the old workspace path (`workspace_root()`); cargo does not rebuild it on a directory move. `cargo clean -p xtask` fixes it.
+- evidence: `xtask/src/main.rs:121`; error `zerx-lab/dial/apps` after the rename to oh-my-clear, gone after `cargo clean -p xtask`
+
 ## L-0039 Poll `job_status` right after `start_job`: job updates can beat the id to the UI
 - date: 2026-09-28 · verified: 2026-09-28 · hits: 1 · status: active
 - tags: [ipc, ui, jobs]

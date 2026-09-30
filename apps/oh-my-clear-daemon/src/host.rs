@@ -11,10 +11,16 @@
 //!   thread, so this thread just drives the daemon loop.
 //!
 //! No tray host (a Linux session without a `StatusNotifierItem` watcher, D-Bus errors) is not
-//! fatal: the daemon runs without a tray and exits when idle.
+//! fatal: the daemon runs without a tray and exits when idle (unless automation rules keep it
+//! running).
+//!
+//! The pending automation runs reach the tray through the [`AutomationStatus`] feed the
+//! daemon hands over with its ready signal; every change rebuilds the tray menu on this
+//! thread.
 
+use omc_engine::AutomationStatus;
 use tokio::runtime::Runtime;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tray_icon::Icon;
 
 use crate::Result;
@@ -42,13 +48,17 @@ mod imp {
     use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS as _};
     use tao::platform::run_return::EventLoopExtRunReturn as _;
 
-    use super::{Icon, Result, Runtime, Shell, mpsc, serve, show};
+    use omc_engine::PendingRun;
+
+    use super::{AutomationStatus, Icon, Result, Runtime, Shell, mpsc, serve, show, watch};
 
     /// Wakes the host thread from the daemon loop.
     #[derive(Debug)]
     enum HostEvent {
         /// The daemon is serving: show the tray.
         Ready,
+        /// The runs waiting for the user changed: rebuild the tray menu.
+        Pending(Vec<PendingRun>),
         /// The daemon loop ended: remove the tray and return from `run`.
         Exit,
     }
@@ -64,7 +74,10 @@ mod imp {
         let (tray_events, tray) = mpsc::unbounded_channel();
         let ready = event_loop.create_proxy();
         let shell = Shell {
-            on_ready: Box::new(move || post(&ready, HostEvent::Ready)),
+            on_ready: Box::new(move |feed| {
+                post(&ready, HostEvent::Ready);
+                tokio::spawn(forward_pending(feed, ready));
+            }),
             tray,
         };
         let daemon = runtime.spawn(serve(shell));
@@ -83,6 +96,11 @@ mod imp {
                 Event::UserEvent(HostEvent::Ready) => {
                     tray = show(&tray_events, icon(target));
                 }
+                Event::UserEvent(HostEvent::Pending(pending)) => {
+                    if let Some(tray) = &tray {
+                        tray.set_pending(&pending);
+                    }
+                }
                 Event::UserEvent(HostEvent::Exit) => {
                     tray = None;
                     *control_flow = ControlFlow::Exit;
@@ -92,6 +110,24 @@ mod imp {
         });
         drop(tray);
         runtime.block_on(finished)?
+    }
+
+    /// Posts the pending runs to the host thread whenever they change (and once at the start).
+    async fn forward_pending(
+        mut feed: watch::Receiver<AutomationStatus>,
+        proxy: EventLoopProxy<HostEvent>,
+    ) {
+        let mut last: Option<Vec<PendingRun>> = None;
+        loop {
+            let pending = feed.borrow_and_update().pending.clone();
+            if last.as_ref() != Some(&pending) {
+                last = Some(pending.clone());
+                post(&proxy, HostEvent::Pending(pending));
+            }
+            if feed.changed().await.is_err() {
+                return;
+            }
+        }
     }
 
     fn post(proxy: &EventLoopProxy<HostEvent>, event: HostEvent) {
@@ -118,15 +154,16 @@ mod imp {
 mod imp {
     use tokio::sync::oneshot;
 
-    use super::{Result, Runtime, Shell, mpsc, serve, show};
+    use super::{AutomationStatus, Result, Runtime, Shell, mpsc, serve, show, watch};
+    use crate::tray::Tray;
 
     /// Runs the daemon with its tray until the daemon loop ends.
     pub(crate) fn run(runtime: &Runtime) -> Result<()> {
         let (tray_events, tray) = mpsc::unbounded_channel();
         let (ready, is_ready) = oneshot::channel();
         let shell = Shell {
-            on_ready: Box::new(move || {
-                if ready.send(()).is_err() {
+            on_ready: Box::new(move |feed| {
+                if ready.send(feed).is_err() {
                     tracing::debug!("host stopped waiting for the daemon");
                 }
             }),
@@ -135,16 +172,33 @@ mod imp {
         // `block_on` keeps the (`!Send`) tray on this thread.
         runtime.block_on(async move {
             let mut daemon = std::pin::pin!(serve(shell));
-            let tray = tokio::select! {
+            let (tray, feed) = tokio::select! {
                 result = &mut daemon => return result,
                 ready = is_ready => match ready {
-                    Ok(()) => show(&tray_events, crate::tray::icon()),
-                    Err(_) => None,
+                    Ok(feed) => (show(&tray_events, crate::tray::icon()), Some(feed)),
+                    Err(_) => (None, None),
                 },
             };
-            let result = daemon.await;
+            let result = match (&tray, feed) {
+                (Some(tray), Some(feed)) => tokio::select! {
+                    result = &mut daemon => result,
+                    () = follow_pending(tray, feed) => daemon.await,
+                },
+                _ => daemon.await,
+            };
             drop(tray);
             result
         })
+    }
+
+    /// Keeps the tray menu in step with the pending runs until the feed ends.
+    async fn follow_pending(tray: &Tray, mut feed: watch::Receiver<AutomationStatus>) {
+        loop {
+            let pending = feed.borrow_and_update().pending.clone();
+            tray.set_pending(&pending);
+            if feed.changed().await.is_err() {
+                return;
+            }
+        }
     }
 }

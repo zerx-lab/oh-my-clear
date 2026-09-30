@@ -277,6 +277,10 @@ pub mod chrome {
     pub const SETTINGS_WINDOW_MIN: Size<Pixels> = size(px(640.), px(420.));
     /// Width of the overview and area page column.
     pub const EMPTY_STATE_WIDTH: Pixels = px(420.);
+    /// Prompt window (a pending automation run: summary, top items, decision buttons).
+    pub const PROMPT_WINDOW: Size<Pixels> = size(px(460.), px(560.));
+    /// Prompt window minimum size.
+    pub const PROMPT_WINDOW_MIN: Size<Pixels> = size(px(400.), px(440.));
 }
 
 /// Main-window layout.
@@ -291,6 +295,8 @@ pub mod layout {
     pub const SIDEBAR_WIDTH: Pixels = px(224.);
     /// Sidebar item height.
     pub const SIDEBAR_ITEM_HEIGHT: Pixels = px(28.);
+    /// Height of a foldable sidebar group heading.
+    pub const SIDEBAR_GROUP_HEIGHT: Pixels = px(24.);
     /// Hover fill of an unselected sidebar item, as a share of the selection fill.
     pub const SIDEBAR_HOVER_ALPHA: f32 = 0.6;
     /// Tile behind an area's icon in its page header.
@@ -322,6 +328,21 @@ pub mod page {
     pub const TILE_MIN_WIDTH: Pixels = px(160.);
     /// Width of the confirmation dialogs.
     pub const DIALOG_WIDTH: Pixels = px(440.);
+    /// Width of the rule list beside the rule editor.
+    pub const RULES_LIST_WIDTH: Pixels = px(300.);
+    /// The rule editor wraps below the list when it would get narrower than this.
+    pub const RULES_EDITOR_MIN_WIDTH: Pixels = px(360.);
+    /// Width of the When/Where/If/Then/Before labels of the rule editor.
+    pub const RULES_LABEL_WIDTH: Pixels = px(56.);
+    /// Width of the command palette.
+    pub const PALETTE_WIDTH: Pixels = px(520.);
+    /// Tallest the command palette's result list grows before it scrolls.
+    pub const PALETTE_LIST_MAX_HEIGHT: Pixels = px(320.);
+    /// Distance of the command palette from the top of the window.
+    pub const PALETTE_TOP: Pixels = px(72.);
+    /// Narrowest automation card of the overview dashboard; three fit a row of the content
+    /// column, narrower windows wrap.
+    pub const DASHBOARD_CARD_MIN_WIDTH: Pixels = px(200.);
     /// Streamed job progress re-renders a page at most this often (one frame at 30 Hz).
     pub const STREAM_COALESCE: Duration = Duration::from_millis(33);
 }

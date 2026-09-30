@@ -28,7 +28,9 @@ gpui_kit::assets::icon_assets!(
         FileArchive,
         Package,
         Power,
-        AppWindow
+        AppWindow,
+        CalendarClock,
+        Activity
     ]
 );
 

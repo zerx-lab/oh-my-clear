@@ -24,6 +24,8 @@ omc-proto = { path = "crates/omc-proto" }
 omc-scan = { path = "crates/omc-scan" }
 omc-telemetry = { path = "crates/omc-telemetry" }
 omc-ui = { path = "crates/omc-ui" }
+# Local time of the automation scheduler (omc-engine; reused from the gpui graph).
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 embed-resource = "3.0.11"
 gpui-kit = "=0.7.0"
 # PNG decoding for the X11 window icon (`WindowOptions::icon` is an `image::RgbaImage`).

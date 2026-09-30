@@ -1,0 +1,315 @@
+_version: 2
+rules:
+  default_name:
+    en: "Clean %{area}"
+    zh-CN: "清理%{area}"
+  new:
+    en: New rule
+    zh-CN: 新建规则
+  template:
+    name:
+      en: Clean old build output every 2 weeks
+      zh-CN: 每两周清理旧的构建产物
+    button:
+      en: Clean old build output every 2 weeks
+      zh-CN: 每两周清理旧的构建产物
+  list:
+    paused:
+      en: Paused
+      zh-CN: 已暂停
+    unscheduled:
+      en: Not scheduled
+      zh-CN: 未安排
+    next:
+      en: "Next run %{when}"
+      zh-CN: "下次运行：%{when}"
+    new_row:
+      en: New rule
+      zh-CN: 新规则
+    unsaved:
+      en: Not saved yet
+      zh-CN: 尚未保存
+    enable:
+      en: Switch the rule on or off
+      zh-CN: 开启或关闭规则
+    run_now:
+      en: Run now
+      zh-CN: 立即运行
+    run_started:
+      en: "“%{name}” started. Follow it under Activity."
+      zh-CN: "“%{name}”已开始，可在“活动”中查看。"
+  unit:
+    day:
+      en: "%{n} day"
+      zh-CN: "%{n} 天"
+    days:
+      en: "%{n} days"
+      zh-CN: "%{n} 天"
+  then:
+    permanent:
+      en: Clean it — the items are deleted permanently (see Settings › Cleaning).
+      zh-CN: 清理——项目将被永久删除（见设置 › 清理）。
+    trash:
+      en: Clean it — the items are moved to the Trash (see Settings › Cleaning).
+      zh-CN: 清理——项目将被移到废纸篓（见设置 › 清理）。
+    default:
+      en: Clean it — the items are removed the way your settings choose.
+      zh-CN: 清理——项目将按设置中的删除方式处理。
+  editor:
+    title_new:
+      en: New rule
+      zh-CN: 新规则
+    title_edit:
+      en: Edit rule
+      zh-CN: 编辑规则
+    name:
+      en: Name
+      zh-CN: 名称
+    name_placeholder:
+      en: Name (optional)
+      zh-CN: 名称（可选）
+    when:
+      en: When
+      zh-CN: 何时
+    where:
+      en: Where
+      zh-CN: 范围
+    if:
+      en: If
+      zh-CN: 条件
+    then:
+      en: Then
+      zh-CN: 动作
+    before:
+      en: Before
+      zh-CN: 确认
+    every:
+      en: Every
+      zh-CN: 每隔
+    at:
+      en: at
+      zh-CN: 于
+    in:
+      en: In
+      zh-CN: 在
+    idle:
+      en: Not touched for
+      zh-CN: 闲置至少
+    size:
+      en: Larger than
+      zh-CN: 大小至少
+    any_age:
+      en: any time
+      zh-CN: 不限时间
+    any_size:
+      en: any size
+      zh-CN: 不限大小
+    include_review:
+      en: Include items I should review
+      zh-CN: 包含需要我确认的项目
+    ask:
+      en: Ask first
+      zh-CN: 先询问
+    auto:
+      en: Clean automatically
+      zh-CN: 自动清理
+    auto_warning:
+      title:
+        en: Nothing will ask you before it is removed
+        zh-CN: 删除前不会再询问你
+      body:
+        en: The rule removes matching items on its own, whether or not oh-my-clear is open. Keep the filters tight.
+        zh-CN: 无论 oh-my-clear 是否打开，规则都会自行删除符合条件的项目。请把条件设得严格一些。
+    save:
+      en: Save
+      zh-CN: 保存
+    cancel:
+      en: Cancel
+      zh-CN: 取消
+    delete:
+      en: Delete rule
+      zh-CN: 删除规则
+    delete_confirm:
+      en: Delete it
+      zh-CN: 确认删除
+  empty:
+    title:
+      en: Let cleanups run on their own
+      zh-CN: 让清理自动进行
+    body:
+      en: A rule cleans one area on a schedule and, if you like, asks before it removes anything. Its runs show up under Activity.
+      zh-CN: 规则按计划清理某个区域，并可在删除前先询问你。运行记录显示在“活动”中。
+  pick:
+    title:
+      en: Pick a rule
+      zh-CN: 选择一条规则
+    body:
+      en: Choose a rule on the left to change it, or create a new one.
+      zh-CN: 在左侧选择规则进行修改，或新建一条。
+runs:
+  state:
+    scanning:
+      en: Scanning…
+      zh-CN: 正在扫描…
+    pending:
+      en: Waiting for you
+      zh-CN: 等待你决定
+    snoozed:
+      en: "Snoozed · asks again %{when}"
+      zh-CN: "已推迟 · %{when}再次询问"
+    deferred:
+      en: "A build is running · retry %{when}"
+      zh-CN: "正在构建 · %{when}重试"
+    cleaning:
+      en: Cleaning…
+      zh-CN: 正在清理…
+    done:
+      en: "Freed %{bytes}"
+      zh-CN: "已释放 %{bytes}"
+    done_failed:
+      en: "Freed %{bytes}, %{failed} not removed"
+      zh-CN: "已释放 %{bytes}，%{failed} 项未能删除"
+    nothing:
+      en: Nothing to clean
+      zh-CN: 没有可清理的内容
+    skipped:
+      en: Skipped
+      zh-CN: 已跳过
+    failed:
+      en: Failed
+      zh-CN: 失败
+  summary:
+    en: "%{count} items · %{bytes}"
+    zh-CN: "%{count} 项 · %{bytes}"
+  snooze:
+    en: Snooze
+    zh-CN: 稍后提醒
+  snooze_minutes:
+    en: "%{n} min"
+    zh-CN: "%{n} 分钟"
+  snooze_hours:
+    en: "%{n} h"
+    zh-CN: "%{n} 小时"
+  clean_now:
+    en: Clean now
+    zh-CN: 立即清理
+  skip:
+    en: Skip this time
+    zh-CN: 本次跳过
+  more_items:
+    en: "and %{count} more"
+    zh-CN: "还有 %{count} 项"
+activity:
+  pending:
+    title:
+      en: Waiting for you
+      zh-CN: 等待你决定
+    body:
+      en: These runs found items and are waiting for your answer.
+      zh-CN: 这些运行已找到项目，正在等你答复。
+  history:
+    title:
+      en: History
+      zh-CN: 历史
+  empty:
+    title:
+      en: No activity yet
+      zh-CN: 暂无活动
+    body:
+      en: When a rule runs, what it found and did shows up here.
+      zh-CN: 规则运行后，它发现并处理的内容会显示在这里。
+prompt:
+  body:
+    en: Your rule found items to clean.
+    zh-CN: 你的规则找到了可清理的项目。
+  settled:
+    en: This run no longer waits for an answer.
+    zh-CN: 这次运行不再等待答复。
+  size:
+    en: To free
+    zh-CN: 可释放
+  items:
+    en: Items
+    zh-CN: 项目
+  open:
+    en: Open oh-my-clear
+    zh-CN: 打开 oh-my-clear
+  close:
+    en: Close
+    zh-CN: 关闭
+  missing:
+    en: This run is no longer known to oh-my-clear.
+    zh-CN: oh-my-clear 已找不到这次运行。
+  loading:
+    en: Loading…
+    zh-CN: 正在加载…
+palette:
+  placeholder:
+    en: Go to a page or rule…
+    zh-CN: 跳转到页面或规则…
+  empty:
+    en: Nothing matches.
+    zh-CN: 没有匹配项。
+  group:
+    general:
+      en: General
+      zh-CN: 常规
+    rule:
+      en: Rule
+      zh-CN: 规则
+  open:
+    en: Command palette
+    zh-CN: 命令面板
+overview:
+  auto:
+    pending:
+      en: Waiting for you
+      zh-CN: 等待你决定
+    pending_count:
+      en: Runs to decide
+      zh-CN: 待决定的运行
+    pending_none:
+      en: Nothing is waiting.
+      zh-CN: 没有等待中的运行。
+    review:
+      en: Review
+      zh-CN: 去处理
+    next:
+      en: Next run
+      zh-CN: 下次运行
+    next_label:
+      en: Starts
+      zh-CN: 开始于
+    unscheduled:
+      en: Not scheduled
+      zh-CN: 未安排
+    all_paused:
+      en: All rules paused
+      zh-CN: 规则均已暂停
+    no_rules:
+      en: No rules yet
+      zh-CN: 还没有规则
+    no_rules_hint:
+      en: Let cleanups run on their own.
+      zh-CN: 让清理自动进行。
+    create:
+      en: Create a rule
+      zh-CN: 创建规则
+    open_rules:
+      en: Rules
+      zh-CN: 规则
+    last:
+      en: Last result
+      zh-CN: 最近结果
+    last_label:
+      en: Outcome
+      zh-CN: 结果
+    no_runs:
+      en: No runs yet
+      zh-CN: 尚无运行
+    no_runs_hint:
+      en: Runs of your rules appear here.
+      zh-CN: 规则的运行结果会显示在这里。
+    open_activity:
+      en: Activity
+      zh-CN: 活动

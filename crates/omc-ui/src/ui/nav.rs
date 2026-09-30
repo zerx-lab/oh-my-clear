@@ -1,19 +1,23 @@
-//! [`NavItem`]: one entry of a sidebar navigation (main window and settings window).
+//! [`NavItem`]: one entry of a sidebar navigation (main window and settings window), and
+//! [`NavGroupHeader`]: the foldable heading of a run of entries.
 
+use std::f32::consts::FRAC_PI_2;
 use std::rc::Rc;
 
-use gpui_kit::base::Button as BaseButton;
-use gpui_kit::component::{ActiveTheme as _, Icon};
+use gpui_kit::base::{Button as BaseButton, spring};
+use gpui_kit::component::{ActiveTheme as _, Icon, IconName};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, ClickEvent, ElementId, FontWeight, InteractiveElement as _, IntoElement,
-    ParentElement as _, RenderOnce, SharedString, Styled as _, Window, div,
+    ParentElement as _, RenderOnce, SharedString, Styled as _, Window, div, radians,
 };
 
-use super::{focus_handle, focus_ring};
-use crate::tokens::{chrome, layout, space, text};
+use super::{child_id, focus_handle, focus_ring};
+use crate::motion;
+use crate::tokens::{chrome, layout, row, space, text};
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
+type ToggleHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
 
 /// A 28 px sidebar entry: 16 px icon, 13 px label (ellipsised), optional trailing element
 /// (key hint). The selected entry gets the neutral sidebar selection fill and 500 weight
@@ -128,5 +132,84 @@ impl RenderOnce for NavItem {
                 this.on_click(move |event, window, cx| on_click(event, window, cx))
             });
         focus_ring(item, &focus, window, cx)
+    }
+}
+
+/// The heading of a foldable run of sidebar entries: 11/500 muted label and a chevron that
+/// points down while the group is open and right while it is folded (it turns on the
+/// [`motion::UI`] spring, instantly under reduced motion). The whole row toggles (click,
+/// Enter or Space) and calls `on_toggle` once with the new open state.
+#[derive(IntoElement)]
+pub struct NavGroupHeader {
+    id: ElementId,
+    label: SharedString,
+    open: bool,
+    on_toggle: Option<ToggleHandler>,
+}
+
+impl NavGroupHeader {
+    /// A header of a group that is `open` (entries shown) or folded.
+    pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>, open: bool) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            open,
+            on_toggle: None,
+        }
+    }
+
+    /// Called with the new open state.
+    #[must_use]
+    pub fn on_toggle(mut self, handler: impl Fn(&bool, &mut Window, &mut App) + 'static) -> Self {
+        self.on_toggle = Some(Rc::new(handler));
+        self
+    }
+}
+
+impl RenderOnce for NavGroupHeader {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let open_amount = spring(
+            child_id(&self.id, "chevron"),
+            if self.open { 1. } else { 0. },
+            motion::UI,
+            window,
+            cx,
+        );
+        let focus = focus_handle(&self.id, window, cx);
+        let theme = cx.theme();
+        let muted = theme.muted_foreground;
+        let hover = theme
+            .sidebar_accent
+            .alpha(theme.sidebar_accent.a * layout::SIDEBAR_HOVER_ALPHA);
+        let open = self.open;
+        let on_toggle = self.on_toggle;
+        let header = BaseButton::new(self.id)
+            .track_focus(&focus)
+            .accessibility_label(self.label.clone())
+            .w_full()
+            .h(layout::SIDEBAR_GROUP_HEIGHT)
+            .justify_start()
+            .mt(space::MD)
+            .px(space::MD)
+            .gap(space::XS)
+            .rounded(theme.radius)
+            .text_size(text::CAPTION)
+            .line_height(text::CAPTION_LINE_HEIGHT)
+            .font_weight(FontWeight::MEDIUM)
+            .text_color(muted)
+            .cursor_pointer()
+            .hover(move |style| style.bg(hover))
+            .child(div().flex_none().child(self.label))
+            .child(
+                div().flex_none().child(
+                    Icon::new(IconName::ChevronDown)
+                        .size(row::CHEVRON)
+                        .rotate(radians((open_amount - 1.) * FRAC_PI_2)),
+                ),
+            )
+            .when_some(on_toggle, |this, on_toggle| {
+                this.on_click(move |_, window, cx| on_toggle(&!open, window, cx))
+            });
+        focus_ring(header, &focus, window, cx)
     }
 }

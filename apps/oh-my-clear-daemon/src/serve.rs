@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use omc_engine::{Engine, EngineConfig};
+use omc_engine::{AutomationStatus, Engine, EngineConfig};
 use omc_ipc::server::{self, Listener};
 use omc_ipc::{DaemonLock, RuntimeDir};
 use omc_proto::{Event, PROTOCOL, Welcome};
@@ -24,8 +24,9 @@ const QUIT_GRACE: Duration = Duration::from_secs(3);
 /// The daemon loop's link to the host thread.
 pub(crate) struct Shell {
     /// Called once, after `READY`: the daemon owns the runtime dir and serves clients, so
-    /// the host shows the tray. Never called when another daemon is already running.
-    pub(crate) on_ready: Box<dyn FnOnce() + Send>,
+    /// the host shows the tray and follows the given feed of pending automation runs.
+    /// Never called when another daemon is already running.
+    pub(crate) on_ready: Box<dyn FnOnce(watch::Receiver<AutomationStatus>) + Send>,
     /// Tray lifecycle and user commands.
     pub(crate) tray: mpsc::UnboundedReceiver<TrayEvent>,
 }
@@ -64,14 +65,25 @@ pub(crate) async fn serve(shell: Shell) -> Result<()> {
     if settings_path.is_none() {
         tracing::warn!("no config directory; settings are kept in memory only");
     }
-    let engine = Engine::with_config(EngineConfig { settings_path });
+    let rules_path = omc_engine::default_rules_path();
+    if rules_path.is_none() {
+        tracing::warn!("no config directory; automation rules are kept in memory only");
+    }
+    let engine = Engine::with_config(EngineConfig {
+        settings_path,
+        rules_path,
+    });
+    // Subscribed before the scheduler starts, so no prompt request is missed.
+    let mut prompts = engine.subscribe_prompts();
+    let mut automation = engine.automation_status();
+    engine.start_automation();
     omc_ipc::announce_ready(&welcome.epoch)?;
     tracing::info!(epoch = %welcome.epoch, dir = %dir.path().display(), "oh-my-clear-daemon ready");
-    on_ready();
+    on_ready(engine.automation_status());
 
     let mut ui = UiLauncher::new(&exe, dir.clone());
     // With a tray the daemon stays until the user quits it; without one (no tray host) it
-    // exits when idle, as a headless daemon.
+    // exits when idle, as a headless daemon, unless automation rules need it running.
     let mut resident = false;
     let idle = idle_timeout(engine.clients());
     tokio::pin!(idle);
@@ -84,16 +96,20 @@ pub(crate) async fn serve(shell: Shell) -> Result<()> {
                 tracing::info!("termination signal received");
                 break;
             }
-            () = &mut idle, if !resident => {
+            () = &mut idle, if !resident && !automation.borrow().active => {
                 tracing::info!(idle = ?IDLE_EXIT, "no clients; exiting");
                 break;
             }
+            // Only re-evaluates the idle guard above when rules appear or vanish.
+            Ok(()) = automation.changed() => {}
+            Ok(run) = prompts.recv() => ui.prompt(&engine, run),
             Some(event) = tray_events.recv() => match event {
                 TrayEvent::Shown => {
                     tracing::info!("tray shown; staying resident while no UI is attached");
                     resident = true;
                 }
                 TrayEvent::Open => ui.open(&engine),
+                TrayEvent::Prompt(run) => ui.prompt(&engine, run),
                 TrayEvent::Quit => {
                     tracing::info!("quit from the tray");
                     quit_uis(&engine).await;
@@ -102,21 +118,7 @@ pub(crate) async fn serve(shell: Shell) -> Result<()> {
             },
             accepted = listener.accept() => match accepted {
                 Ok(stream) => {
-                    let engine = engine.clone();
-                    let token = listener.token().to_owned();
-                    let welcome = welcome.clone();
-                    tokio::spawn(async move {
-                        let conn = match server::handshake(stream, &token, &welcome).await {
-                            Ok(conn) => conn,
-                            Err(err) => {
-                                tracing::warn!(%err, "handshake failed; dropping connection");
-                                return;
-                            }
-                        };
-                        if let Err(err) = engine.serve(conn).await {
-                            tracing::warn!(%err, "connection ended with an error");
-                        }
-                    });
+                    spawn_connection(&engine, stream, listener.token().to_owned(), welcome.clone());
                 }
                 Err(err) => {
                     tracing::warn!(%err, "accept failed");
@@ -127,6 +129,28 @@ pub(crate) async fn serve(shell: Shell) -> Result<()> {
     }
     tracing::info!("oh-my-clear-daemon stopping");
     Ok(())
+}
+
+/// Serves one accepted client on its own task: handshake, then requests until it leaves.
+fn spawn_connection(
+    engine: &Engine,
+    stream: omc_ipc::BoxedStream,
+    token: String,
+    welcome: Welcome,
+) {
+    let engine = engine.clone();
+    tokio::spawn(async move {
+        let conn = match server::handshake(stream, &token, &welcome).await {
+            Ok(conn) => conn,
+            Err(err) => {
+                tracing::warn!(%err, "handshake failed; dropping connection");
+                return;
+            }
+        };
+        if let Err(err) = engine.serve(conn).await {
+            tracing::warn!(%err, "connection ended with an error");
+        }
+    });
 }
 
 /// Tells every attached UI to exit and waits (bounded) until they detached, so none of

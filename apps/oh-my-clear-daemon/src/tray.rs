@@ -1,6 +1,8 @@
-//! The system tray (ADR 0020): icon, menu (Open, Quit) and clicks. Built on the host
-//! thread ([`crate::host`]); every user action is forwarded as a [`TrayEvent`] to the
-//! daemon loop ([`crate::serve`]), which never blocks the thread that draws the tray.
+//! The system tray (ADR 0020): icon, menu (pending automation runs, Open, Quit) and clicks.
+//! Built on the host thread ([`crate::host`]); every user action is forwarded as a
+//! [`TrayEvent`] to the daemon loop ([`crate::serve`]), which never blocks the thread that
+//! draws the tray. The menu is rebuilt whenever the pending runs change
+//! ([`Tray::set_pending`]); picking one asks the daemon to prompt for it.
 //!
 //! - macOS: a monochrome template image in the menu bar, tinted by `AppKit` for light/dark
 //!   menu bars and the highlight; a click opens the menu (platform convention).
@@ -9,6 +11,8 @@
 //! - Linux/BSD: a `StatusNotifierItem` over D-Bus (KDE, GNOME with the `AppIndicator`
 //!   extension, …); activating the item opens the UI, the menu has both commands.
 
+use omc_engine::PendingRun;
+use omc_proto::rules::RunId;
 use rust_i18n::t;
 use tokio::sync::mpsc;
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
@@ -23,6 +27,8 @@ pub(crate) enum TrayEvent {
     Shown,
     /// Show the UI.
     Open,
+    /// Ask the user about this pending automation run.
+    Prompt(RunId),
     /// Quit oh-my-clear: every UI, then the daemon.
     Quit,
 }
@@ -31,11 +37,15 @@ const TRAY_ID: &str = "oh-my-clear";
 const TOOLTIP: &str = "oh-my-clear";
 const OPEN_ID: &str = "open";
 const QUIT_ID: &str = "quit";
+/// Menu id prefix of a pending run: `run:<id>`.
+const RUN_ID_PREFIX: &str = "run:";
+/// Pending runs listed in the menu; the rest is summarised.
+const MAX_LISTED: usize = 5;
 
 /// A shown tray icon; dropping it removes the icon. Not `Send`: it stays on the host
 /// thread that built it.
 pub(crate) struct Tray {
-    _icon: TrayIcon,
+    icon: TrayIcon,
 }
 
 impl std::fmt::Debug for Tray {
@@ -49,9 +59,7 @@ impl Tray {
     /// `events`. Call once per process: the menu and click handlers are process-global.
     pub(crate) fn show(events: &mpsc::UnboundedSender<TrayEvent>, icon: Icon) -> Result<Self> {
         forward_events(events);
-        let open = MenuItem::with_id(OPEN_ID, t!("tray.open"), true, None);
-        let quit = MenuItem::with_id(QUIT_ID, t!("tray.quit"), true, None);
-        let menu = Menu::with_items(&[&open, &PredefinedMenuItem::separator(), &quit])?;
+        let menu = build_menu(&[])?;
         let icon = TrayIconBuilder::new()
             .with_id(TRAY_ID)
             .with_tooltip(TOOLTIP)
@@ -61,7 +69,70 @@ impl Tray {
             .with_menu_on_left_click(cfg!(target_os = "macos"))
             .build()?;
         send(events, TrayEvent::Shown);
-        Ok(Self { _icon: icon })
+        Ok(Self { icon })
+    }
+
+    /// Rebuilds the menu for the runs waiting for the user. Call on the host thread.
+    pub(crate) fn set_pending(&self, pending: &[PendingRun]) {
+        match build_menu(pending) {
+            Ok(menu) => self.icon.set_menu(Some(Box::new(menu))),
+            Err(err) => tracing::warn!(%err, "cannot rebuild the tray menu"),
+        }
+    }
+}
+
+/// The menu: a line per pending run (at most [`MAX_LISTED`], then a summary), then Open and
+/// Quit.
+fn build_menu(pending: &[PendingRun]) -> Result<Menu> {
+    let menu = Menu::new();
+    for run in pending.iter().take(MAX_LISTED) {
+        let label = t!(
+            "tray.pending",
+            name = run.rule_name,
+            size = human_size(run.bytes)
+        );
+        menu.append(&MenuItem::with_id(
+            format!("{RUN_ID_PREFIX}{}", run.id),
+            label,
+            true,
+            None,
+        ))?;
+    }
+    if let Some(more) = pending
+        .len()
+        .checked_sub(MAX_LISTED)
+        .filter(|more| *more > 0)
+    {
+        menu.append(&MenuItem::new(
+            t!("tray.pending_more", count = more),
+            false,
+            None,
+        ))?;
+    }
+    if !pending.is_empty() {
+        menu.append(&PredefinedMenuItem::separator())?;
+    }
+    menu.append(&MenuItem::with_id(OPEN_ID, t!("tray.open"), true, None))?;
+    menu.append(&PredefinedMenuItem::separator())?;
+    menu.append(&MenuItem::with_id(QUIT_ID, t!("tray.quit"), true, None))?;
+    Ok(menu)
+}
+
+/// `1.5 GB`-style size for a menu line (binary units, one decimal from KB up).
+fn human_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    // Tenths of the current unit, so no float is needed.
+    let mut tenths = bytes.saturating_mul(10);
+    let mut unit = 0_usize;
+    while tenths >= 10_240 && unit < UNITS.len().saturating_sub(1) {
+        tenths /= 1024;
+        unit = unit.saturating_add(1);
+    }
+    let name = UNITS.get(unit).copied().unwrap_or("TB");
+    if unit == 0 {
+        format!("{} {name}", tenths / 10)
+    } else {
+        format!("{}.{} {name}", tenths / 10, tenths % 10)
     }
 }
 
@@ -69,10 +140,12 @@ impl Tray {
 /// receives them from the OS (host thread, or ksni's D-Bus thread) and only enqueue.
 fn forward_events(events: &mpsc::UnboundedSender<TrayEvent>) {
     let menu_events = events.clone();
-    MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id.as_ref() {
-        OPEN_ID => send(&menu_events, TrayEvent::Open),
-        QUIT_ID => send(&menu_events, TrayEvent::Quit),
-        other => tracing::debug!(id = other, "unknown tray menu item"),
+    MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+        if let Some(command) = menu_command(event.id.as_ref()) {
+            send(&menu_events, command);
+        } else {
+            tracing::debug!(id = event.id.as_ref(), "unknown tray menu item");
+        }
     }));
     let click_events = events.clone();
     TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
@@ -80,6 +153,18 @@ fn forward_events(events: &mpsc::UnboundedSender<TrayEvent>) {
             send(&click_events, TrayEvent::Open);
         }
     }));
+}
+
+/// The command a menu item id stands for.
+fn menu_command(id: &str) -> Option<TrayEvent> {
+    match id {
+        OPEN_ID => Some(TrayEvent::Open),
+        QUIT_ID => Some(TrayEvent::Quit),
+        other => other
+            .strip_prefix(RUN_ID_PREFIX)
+            .and_then(|run| run.parse::<RunId>().ok())
+            .map(TrayEvent::Prompt),
+    }
 }
 
 /// A primary click on the icon opens the UI where the icon is not a menu button (macOS
@@ -146,6 +231,34 @@ fn small_icon_size(scale_factor: f64) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn menu_ids_map_to_commands() {
+        assert_eq!(menu_command(OPEN_ID), Some(TrayEvent::Open), "open");
+        assert_eq!(menu_command(QUIT_ID), Some(TrayEvent::Quit), "quit");
+        assert_eq!(
+            menu_command("run:42"),
+            Some(TrayEvent::Prompt(42)),
+            "a pending run"
+        );
+        assert_eq!(menu_command("run:x"), None, "a malformed run id");
+        assert_eq!(menu_command("other"), None, "an unknown item");
+    }
+
+    #[test]
+    fn sizes_read_like_a_file_manager() {
+        for (bytes, expected) in [
+            (0, "0 B"),
+            (999, "999 B"),
+            (1_023, "1023 B"),
+            (1_024, "1.0 KB"),
+            (1_536, "1.5 KB"),
+            (5_000_000_000, "4.6 GB"),
+            (u64::MAX, "1677721.5 TB"),
+        ] {
+            assert_eq!(human_size(bytes), expected, "{bytes} bytes");
+        }
+    }
 
     #[test]
     fn small_icon_follows_the_scale_factor() {

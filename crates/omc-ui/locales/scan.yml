@@ -196,6 +196,12 @@ perm:
       en: "%{count} locations were not readable (e.g. %{path})."
       zh-CN: "有 %{count} 个位置无法读取（例如 %{path}）。"
 junk:
+  automate:
+    en: Clean automatically…
+    zh-CN: 自动清理…
+  automate_tip:
+    en: Set up a rule that cleans this area on a schedule
+    zh-CN: 创建按计划清理此区域的规则
   idle:
     title:
       en: What this scan looks at

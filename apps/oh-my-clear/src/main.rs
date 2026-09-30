@@ -1,12 +1,15 @@
 //! oh-my-clear GUI process: gpui-kit viewport over the background `oh-my-clear-daemon` (ADR 0008).
 //! Starts the omc-ipc client (spawning the daemon that belongs to this executable,
-//! [`omc_ipc::layout`], when no daemon answers) before opening the main window.
+//! [`omc_ipc::layout`], when no daemon answers) before opening the main window — or, for
+//! `oh-my-clear --prompt <run>` (the daemon's way to ask about an automation run when no UI
+//! is attached, ADR 0024), only the prompt window of that run.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use gpui_kit::App;
+use omc_ui::prompt::{Launch, parse_args};
 
 fn main() -> ExitCode {
     if let Err(err) = omc_telemetry::init() {
@@ -14,6 +17,15 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
     tracing::info!(version = env!("CARGO_PKG_VERSION"), "oh-my-clear starting");
+    let parsed = parse_args(
+        std::env::args_os()
+            .skip(1)
+            .map(|arg| arg.to_string_lossy().into_owned()),
+    );
+    for arg in &parsed.ignored {
+        tracing::warn!(%arg, "ignoring an unknown command-line argument");
+    }
+    let launch = parsed.launch;
     let daemon = daemon_exe();
     if let Ok(daemon) = &daemon {
         build_daemon_under_cargo_run(daemon);
@@ -22,7 +34,7 @@ fn main() -> ExitCode {
     gpui_kit::application()
         .with_assets(omc_ui::assets::Assets)
         .run(move |cx| {
-            if let Err(err) = start(daemon, cx) {
+            if let Err(err) = start(daemon, launch, cx) {
                 tracing::error!("oh-my-clear failed to start: {err}");
                 cx.quit();
             }
@@ -30,7 +42,7 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn start(daemon: std::io::Result<PathBuf>, cx: &mut App) -> omc_ui::Result<()> {
+fn start(daemon: std::io::Result<PathBuf>, launch: Launch, cx: &mut App) -> omc_ui::Result<()> {
     omc_ui::init(cx)?;
     match daemon {
         Ok(exe) => {
@@ -50,7 +62,12 @@ fn start(daemon: std::io::Result<PathBuf>, cx: &mut App) -> omc_ui::Result<()> {
         }
     })
     .detach();
-    omc_ui::open_main_window(cx)?;
+    match launch {
+        Launch::Main => {
+            omc_ui::open_main_window(cx)?;
+        }
+        Launch::Prompt(run) => omc_ui::prompt::open_prompt_window(run, cx)?,
+    }
     cx.activate(true);
     Ok(())
 }

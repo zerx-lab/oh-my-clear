@@ -3,10 +3,12 @@
 //! from every window regardless of focus; [`ToggleSidebar`] is the exception, handled by
 //! the main window's view.
 
+use std::rc::Rc;
+
 use gpui_kit::component::kbd::Kbd;
 use gpui_kit::{
-    Action, App, AsKeystroke as _, DummyKeyboardMapper, KeyBinding, Menu, MenuItem, SharedString,
-    Window,
+    Action, App, AsKeystroke as _, DummyKeyboardMapper, KeyBinding, KeyBindingContextPredicate,
+    Menu, MenuItem, SharedString, Window,
 };
 
 use crate::i18n::Language;
@@ -30,6 +32,16 @@ gpui_kit::actions!(
         OpenSettings,
         /// Show or hide the main window's sidebar.
         ToggleSidebar,
+        /// Open the command palette: jump to any page or rule.
+        OpenCommandPalette,
+        /// Command palette: move the cursor to the next result.
+        PaletteNext,
+        /// Command palette: move the cursor to the previous result.
+        PalettePrevious,
+        /// Command palette: go to the result under the cursor.
+        PaletteConfirm,
+        /// Command palette: close it.
+        PaletteCancel,
         /// Switch between the light and dark theme.
         ToggleAppearance,
         /// Follow the OS appearance.
@@ -47,31 +59,47 @@ gpui_kit::actions!(
     ]
 );
 
-/// A key binding: keystrokes and the action they dispatch.
-type Binding = (&'static str, Box<dyn Action>);
+/// A key binding: keystrokes, the action they dispatch and the key context they apply in
+/// (`None` = everywhere).
+type Binding = (&'static str, Box<dyn Action>, Option<&'static str>);
+
+/// The command palette's key context: its text input would take these keys, so they are
+/// bound one level deeper, where the later binding wins (see [`crate::palette`]).
+const PALETTE_INPUT: &str = "Palette > Input";
 
 /// Global key bindings. `secondary` is Cmd on macOS and Ctrl elsewhere.
 fn bindings() -> Vec<Binding> {
     let mut bindings: Vec<Binding> = vec![
-        ("secondary-q", Box::new(Quit)),
-        ("secondary-w", Box::new(CloseWindow)),
-        ("secondary-,", Box::new(OpenSettings)),
-        ("secondary-b", Box::new(ToggleSidebar)),
-        ("secondary-k secondary-t", Box::new(ToggleAppearance)),
+        ("secondary-q", Box::new(Quit), None),
+        ("secondary-w", Box::new(CloseWindow), None),
+        ("secondary-,", Box::new(OpenSettings), None),
+        ("secondary-b", Box::new(ToggleSidebar), None),
+        // A lone `secondary-k` opens the palette; a chord starting with it would make GPUI
+        // wait for the second key before opening anything.
+        ("secondary-k", Box::new(OpenCommandPalette), None),
+        ("secondary-shift-l", Box::new(ToggleAppearance), None),
+        ("down", Box::new(PaletteNext), Some(PALETTE_INPUT)),
+        ("up", Box::new(PalettePrevious), Some(PALETTE_INPUT)),
+        ("enter", Box::new(PaletteConfirm), Some(PALETTE_INPUT)),
+        ("escape", Box::new(PaletteCancel), Some(PALETTE_INPUT)),
     ];
     if cfg!(target_os = "macos") {
-        bindings.push(("cmd-m", Box::new(Minimize)));
+        bindings.push(("cmd-m", Box::new(Minimize), None));
     }
     bindings
 }
 
-fn load_binding((keys, action): Binding) -> Result<KeyBinding> {
-    KeyBinding::load(keys, action, None, false, None, &DummyKeyboardMapper).map_err(|err| {
-        Error::KeyBinding {
-            keys,
-            message: err.to_string(),
-        }
-    })
+fn load_binding((keys, action, context): Binding) -> Result<KeyBinding> {
+    let invalid = |message: String| Error::KeyBinding { keys, message };
+    let predicate = context
+        .map(|context| {
+            KeyBindingContextPredicate::parse(context)
+                .map(Rc::new)
+                .map_err(|err| invalid(err.to_string()))
+        })
+        .transpose()?;
+    KeyBinding::load(keys, action, predicate, false, None, &DummyKeyboardMapper)
+        .map_err(|err| invalid(err.to_string()))
 }
 
 fn set_appearance(appearance: Appearance, cx: &mut App) {
@@ -196,6 +224,7 @@ pub(crate) fn set_menus(cx: &mut App) {
         ]),
         Menu::new(tr("menu.view")).items([
             MenuItem::action(tr("menu.toggle_sidebar"), ToggleSidebar),
+            MenuItem::action(tr("menu.command_palette"), OpenCommandPalette),
             MenuItem::separator(),
             MenuItem::action(tr("appearance.toggle"), ToggleAppearance),
             MenuItem::separator(),

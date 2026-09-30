@@ -101,7 +101,7 @@ impl Area {
             Category::SpaceLens => Self::SpaceLens,
             Category::Uninstaller => Self::AppList,
             Category::StartupItems => Self::StartupItems,
-            Category::Overview => return None,
+            Category::Overview | Category::Rules | Category::Activity => return None,
         })
     }
 

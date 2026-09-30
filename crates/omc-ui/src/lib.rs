@@ -12,7 +12,9 @@
 //! - [`actions`]: every command as an `Action`, key bindings and native menus;
 //! - [`assets`]: gpui-kit's icons plus the app's own;
 //! - [`nav`]: the cleaning areas shown in the main window's sidebar;
-//! - [`engine`]: the omc-ipc client bridge (tokio runtime + `EngineHandle` in a Global).
+//! - [`engine`]: the omc-ipc client bridge (tokio runtime + `EngineHandle` in a Global);
+//! - [`rules`] / [`prompt`] / [`palette`]: automation (ADR 0024) — the shared rules store,
+//!   the prompt window of a run that needs a decision, and the ⌘K command palette.
 
 rust_i18n::i18n!("locales", fallback = "en");
 
@@ -30,6 +32,9 @@ mod main_view;
 pub mod motion;
 pub mod nav;
 mod pages;
+mod palette;
+pub mod prompt;
+mod rules;
 pub(crate) mod scans;
 pub mod settings;
 mod settings_view;

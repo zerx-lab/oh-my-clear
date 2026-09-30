@@ -10,6 +10,8 @@
 //! - [`dupes::DuplicatesPage`]: duplicate groups.
 //! - [`uninstaller::UninstallerPage`]: app list, related files, uninstall.
 //! - [`startup::StartupPage`]: login/boot items.
+//! - [`rules::RulesPage`] and [`activity::ActivityPage`]: automation rules and their runs
+//!   (ADR 0024), over the shared [`crate::rules::Rules`] store.
 //!
 //! [`Pages::set_visible`] tells a page it came on screen (`on_shown`) or left it
 //! (`on_hidden`); that is where results are refreshed by the freshness policy.
@@ -28,19 +30,23 @@ use crate::scans::{self, Area, ScanEvent, Scans};
 use crate::ui;
 use widgets::{OnClick, Tone, tr};
 
+pub(crate) mod activity;
 pub(crate) mod dupes;
 pub(crate) mod junk;
 pub(crate) mod large;
 pub(crate) mod overview;
+pub(crate) mod rules;
 pub(crate) mod space;
 pub(crate) mod startup;
 pub(crate) mod uninstaller;
 pub(crate) mod widgets;
 
+use activity::ActivityPage;
 use dupes::DuplicatesPage;
 use junk::JunkPage;
 use large::LargeFilesPage;
 use overview::OverviewPage;
+use rules::RulesPage;
 use space::SpacePage;
 use startup::StartupPage;
 use uninstaller::UninstallerPage;
@@ -48,6 +54,11 @@ use uninstaller::UninstallerPage;
 /// Asks the main window to show another area (emitted by pages, handled by [`MainView`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Navigate(pub(crate) Category);
+
+/// Asks the main window to open the Rules page with an unsaved rule that automates the
+/// area (emitted by an area page's "Clean automatically…", handled by [`MainView`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Automate(pub(crate) Category);
 
 /// Follows `area` in the store: re-renders on every store change (progress, connection)
 /// and hands `area`'s [`ScanEvent`]s to `on_event`.
@@ -113,6 +124,8 @@ pub(crate) struct Pages {
     dupes: Entity<DuplicatesPage>,
     uninstaller: Entity<UninstallerPage>,
     startup: Entity<StartupPage>,
+    pub(crate) rules: Entity<RulesPage>,
+    activity: Entity<ActivityPage>,
 }
 
 impl std::fmt::Debug for Pages {
@@ -135,7 +148,14 @@ impl Pages {
             dupes: cx.new(|cx| DuplicatesPage::new(window, cx)),
             uninstaller: cx.new(|cx| UninstallerPage::new(window, cx)),
             startup: cx.new(|cx| StartupPage::new(window, cx)),
+            rules: cx.new(|cx| RulesPage::new(window, cx)),
+            activity: cx.new(|cx| ActivityPage::new(window, cx)),
         }
+    }
+
+    /// The area pages built on [`JunkPage`].
+    pub(crate) fn junk_pages(&self) -> impl Iterator<Item = &Entity<JunkPage>> {
+        self.junk.iter().map(|(_, page)| page)
     }
 
     /// The page of `category`.
@@ -147,6 +167,8 @@ impl Pages {
             Category::Duplicates => self.dupes.clone().into(),
             Category::Uninstaller => self.uninstaller.clone().into(),
             Category::StartupItems => self.startup.clone().into(),
+            Category::Rules => self.rules.clone().into(),
+            Category::Activity => self.activity.clone().into(),
             junk => self
                 .junk
                 .iter()
@@ -171,6 +193,13 @@ impl Pages {
                     .update(cx, |p, cx| p.set_visible(shown, cx));
             }
             Category::StartupItems => self.startup.update(cx, |p, cx| p.set_visible(shown, cx)),
+            // The daemon pushes rule and run changes; opening the page re-lists anyway, in
+            // case an event was missed while the connection was down.
+            Category::Rules | Category::Activity => {
+                if shown {
+                    crate::rules::entity(cx).update(cx, crate::rules::Rules::refresh);
+                }
+            }
             junk => {
                 if let Some((_, page)) = self.junk.iter().find(|(area, _)| *area == junk) {
                     page.update(cx, |p, cx| p.set_visible(shown, cx));
@@ -181,3 +210,4 @@ impl Pages {
 }
 
 impl EventEmitter<Navigate> for OverviewPage {}
+impl EventEmitter<Automate> for JunkPage {}

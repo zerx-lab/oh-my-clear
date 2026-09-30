@@ -789,14 +789,26 @@ impl JunkPage {
         connected: bool,
         cx: &mut Context<'_, Self>,
     ) -> Vec<AnyElement> {
-        if flow.is_busy() || matches!(flow.phase, FlowPhase::Idle | FlowPhase::Failed) {
-            return Vec::new();
+        let mut actions = Vec::new();
+        if self.area == Category::DeveloperJunk {
+            actions.push(
+                ui::Button::new("junk-automate", tr("junk.automate"))
+                    .icon(IconName::CalendarClock)
+                    .tooltip(tr("junk.automate_tip"))
+                    .on_click(Self::listener(cx, |this, _, cx| {
+                        cx.emit(super::Automate(this.area));
+                    }))
+                    .into_any_element(),
+            );
         }
-        let mut actions = vec![widgets::rescan_button(
+        if flow.is_busy() || matches!(flow.phase, FlowPhase::Idle | FlowPhase::Failed) {
+            return actions;
+        }
+        actions.push(widgets::rescan_button(
             "junk-rescan",
             connected,
             Self::listener(cx, |this, _, cx| this.scan(cx)),
-        )];
+        ));
         if let Some(model) = self
             .model
             .as_ref()

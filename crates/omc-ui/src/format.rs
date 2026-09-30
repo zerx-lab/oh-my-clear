@@ -8,6 +8,9 @@ use gpui_kit::SharedString;
 
 const DECIMAL: bool = !cfg!(windows);
 
+/// One megabyte as [`bytes`] counts it (the size steps of the rule editor read "100 MB").
+pub(crate) const MEGABYTE: u64 = if DECIMAL { 1_000_000 } else { 1_048_576 };
+
 /// `1.2 GB`, `834 MB`, `12 KB`, `0 bytes`-style size.
 pub fn bytes(n: u64) -> SharedString {
     let unit: u64 = if DECIMAL { 1000 } else { 1024 };
@@ -66,6 +69,60 @@ pub fn age(then: i64, now: i64) -> Option<SharedString> {
     Some(text.into())
 }
 
+/// A distance in time, coarsened to the unit people say it in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Span {
+    /// Under a minute.
+    Moments,
+    /// Whole minutes (1..60).
+    Minutes(u64),
+    /// Whole hours (1..24).
+    Hours(u64),
+    /// Whole days.
+    Days(u64),
+}
+
+impl Span {
+    /// The coarse unit of `secs` seconds.
+    pub(crate) const fn of(secs: u64) -> Self {
+        let minutes = secs / 60;
+        let hours = minutes / 60;
+        let days = hours / 24;
+        if days >= 1 {
+            Self::Days(days)
+        } else if hours >= 1 {
+            Self::Hours(hours)
+        } else if minutes >= 1 {
+            Self::Minutes(minutes)
+        } else {
+            Self::Moments
+        }
+    }
+}
+
+/// `then` relative to `now` in the unit people say it in ("in 3 days", "12 min ago",
+/// "just now"), localised through the `time.rel.*` keys.
+pub fn relative(then: i64, now: i64) -> SharedString {
+    let delta = then.saturating_sub(now);
+    let span = Span::of(delta.unsigned_abs());
+    let text = if delta >= 0 {
+        match span {
+            Span::Moments => rust_i18n::t!("time.rel.soon").to_string(),
+            Span::Minutes(n) => rust_i18n::t!("time.rel.in_minutes", n = n).to_string(),
+            Span::Hours(n) => rust_i18n::t!("time.rel.in_hours", n = n).to_string(),
+            Span::Days(n) => rust_i18n::t!("time.rel.in_days", n = n).to_string(),
+        }
+    } else {
+        match span {
+            Span::Moments => rust_i18n::t!("time.rel.just_now").to_string(),
+            Span::Minutes(n) => rust_i18n::t!("time.rel.minutes_ago", n = n).to_string(),
+            Span::Hours(n) => rust_i18n::t!("time.rel.hours_ago", n = n).to_string(),
+            Span::Days(n) => rust_i18n::t!("time.rel.days_ago", n = n).to_string(),
+        }
+    };
+    text.into()
+}
+
 /// Seconds since the Unix epoch now.
 pub fn now() -> i64 {
     std::time::SystemTime::now()
@@ -108,6 +165,21 @@ fn tilde_in(path: &str, home: Option<&str>, fold_case: bool) -> SharedString {
     match rest {
         Some(rest) => format!("~{rest}").into(),
         None => SharedString::from(path.to_owned()),
+    }
+}
+
+#[cfg(test)]
+mod span_tests {
+    use super::Span;
+
+    #[test]
+    fn spans_use_the_largest_whole_unit() {
+        assert_eq!(Span::of(59), Span::Moments, "under a minute");
+        assert_eq!(Span::of(60), Span::Minutes(1), "a minute");
+        assert_eq!(Span::of(3_599), Span::Minutes(59), "just under an hour");
+        assert_eq!(Span::of(3_600), Span::Hours(1), "an hour");
+        assert_eq!(Span::of(86_399), Span::Hours(23), "just under a day");
+        assert_eq!(Span::of(86_400 * 14), Span::Days(14), "two weeks");
     }
 }
 

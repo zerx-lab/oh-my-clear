@@ -11,26 +11,29 @@ use gpui_kit::base::Button as BaseButton;
 use gpui_kit::component::{ActiveTheme as _, Icon, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    Action, AnyElement, AsyncApp, Context, ElementId, Entity, FontWeight, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Subscription, Task, WeakEntity, Window, div, img,
+    Action, AnyElement, App, AsyncApp, Context, ElementId, Entity, FontWeight,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Task, WeakEntity, Window, div, img,
 };
 use omc_ipc::client::{ClientEvent, ConnState};
 use omc_proto::jobs::{CleanReport, FailReason, ItemId};
+use omc_proto::rules::RuleRun;
 use omc_proto::settings::{Access, Os, SystemInfo, Volume};
 
 use super::Navigate;
 use super::junk::{kind_label, removal, report_card};
 use super::widgets::flow::FlowView;
+use super::widgets::runs::{run_summary, state_label, state_tone};
 use super::widgets::{
     self, CleanConfirm, ConnChange, Connection, FlowPhase, OnClick, Removal, Tone, tr,
 };
-use crate::actions::{OpenSettings, Quit, ToggleAppearance, ToggleSidebar};
+use crate::actions::{OpenCommandPalette, OpenSettings, Quit, ToggleAppearance, ToggleSidebar};
 use crate::brand;
 use crate::engine;
 use crate::format;
 use crate::jobs;
 use crate::nav::Category;
+use crate::rules::{self, Rules};
 use crate::scans::{self, Area, AreaSummary, SafeGroup, Scans};
 use crate::tokens::{card, chrome, layout, page, radius, row, space, text};
 use crate::ui;
@@ -102,6 +105,7 @@ struct CardState {
 /// The start page.
 pub(crate) struct OverviewPage {
     scans: Entity<Scans>,
+    rules: Entity<Rules>,
     /// Only for the system facts (the store tracks job epochs).
     conn: Connection,
     info: Option<SystemInfo>,
@@ -123,6 +127,7 @@ impl OverviewPage {
     pub(crate) fn new(_window: &mut Window, cx: &mut Context<'_, Self>) -> Self {
         let engine = engine::entity(cx);
         let scans = scans::entity(cx);
+        let rules = rules::entity(cx);
         let subscriptions = vec![
             cx.subscribe(&engine, |this, _, event: &ClientEvent, cx| {
                 let change = this.conn.observe(event);
@@ -137,9 +142,12 @@ impl OverviewPage {
             }),
             // Tiles, progress and reports follow the store.
             cx.observe(&scans, |_, _, cx| cx.notify()),
+            // The automation cards follow the rules store.
+            cx.observe(&rules, |_, _, cx| cx.notify()),
         ];
         let mut this = Self {
             scans,
+            rules,
             conn: Connection::new(cx),
             info: None,
             info_error: None,
@@ -294,6 +302,167 @@ impl OverviewPage {
         f: impl Fn(&mut Self, &mut Window, &mut Context<'_, Self>) + 'static,
     ) -> OnClick {
         Box::new(cx.listener(move |this, _, window, cx| f(this, window, cx)))
+    }
+
+    /// A `sm` secondary that opens `category` from a dashboard card.
+    fn dashboard_link(
+        id: &'static str,
+        label: &'static str,
+        category: Category,
+        cx: &mut Context<'_, Self>,
+    ) -> ui::Button {
+        ui::Button::new(id, tr(label))
+            .small()
+            .on_click(cx.listener(move |_, _, _, cx| cx.emit(Navigate(category))))
+    }
+
+    /// The muted one-line note of a dashboard card.
+    fn dashboard_note(text: SharedString, cx: &App) -> AnyElement {
+        div()
+            .w_full()
+            .min_w_0()
+            .overflow_hidden()
+            .text_ellipsis()
+            .whitespace_nowrap()
+            .text_size(text::SMALL)
+            .line_height(text::SMALL_LINE_HEIGHT)
+            .text_color(cx.theme().muted_foreground)
+            .child(text)
+            .into_any_element()
+    }
+
+    /// An automation card of the dashboard: `title`, then `body` stacked.
+    fn dashboard_card(title: &'static str, body: Vec<AnyElement>) -> ui::Card {
+        ui::Card::new()
+            .flex_1()
+            .min_w(page::DASHBOARD_CARD_MIN_WIDTH)
+            .header(ui::CardHeader::new(tr(title)))
+            .child(v_flex().w_full().gap(space::MD).children(body))
+    }
+
+    /// Runs waiting for the user: their number, the first one's rule, a link to Activity.
+    fn pending_card(pending: &[RuleRun], cx: &mut Context<'_, Self>) -> ui::Card {
+        let count = pending.len();
+        let tone = if count > 0 {
+            ui::Tone::Warning
+        } else {
+            ui::Tone::Neutral
+        };
+        let first = pending.first().map_or_else(
+            || tr("overview.auto.pending_none"),
+            |run| run.rule_name.clone().into(),
+        );
+        let mut body = vec![
+            ui::Stat::new(
+                tr("overview.auto.pending_count"),
+                format::count(u64::try_from(count).unwrap_or(u64::MAX)),
+            )
+            .hero()
+            .tone(tone)
+            .into_any_element(),
+            Self::dashboard_note(first, cx),
+        ];
+        if count > 0 {
+            body.push(
+                Self::dashboard_link(
+                    "overview-review",
+                    "overview.auto.review",
+                    Category::Activity,
+                    cx,
+                )
+                .into_any_element(),
+            );
+        }
+        Self::dashboard_card("overview.auto.pending", body)
+    }
+
+    /// The next scheduled run: when, which rule, a link to Rules.
+    fn next_card(
+        next: Option<&(String, Option<i64>)>,
+        rule_count: usize,
+        now: i64,
+        cx: &mut Context<'_, Self>,
+    ) -> ui::Card {
+        let (value, detail): (SharedString, SharedString) = match next {
+            Some((name, Some(at))) => (format::relative(*at, now), name.clone().into()),
+            Some((name, None)) => (tr("overview.auto.unscheduled"), name.clone().into()),
+            None if rule_count > 0 => (tr("overview.auto.all_paused"), SharedString::default()),
+            None => (
+                tr("overview.auto.no_rules"),
+                tr("overview.auto.no_rules_hint"),
+            ),
+        };
+        let (id, label) = if rule_count == 0 {
+            ("overview-new-rule", "overview.auto.create")
+        } else {
+            ("overview-rules", "overview.auto.open_rules")
+        };
+        Self::dashboard_card(
+            "overview.auto.next",
+            vec![
+                ui::Stat::new(tr("overview.auto.next_label"), value).into_any_element(),
+                Self::dashboard_note(detail, cx),
+                Self::dashboard_link(id, label, Category::Rules, cx).into_any_element(),
+            ],
+        )
+    }
+
+    /// The newest finished run: how it ended, which rule and when, a link to Activity.
+    fn last_card(last: Option<&RuleRun>, now: i64, cx: &mut Context<'_, Self>) -> ui::Card {
+        let (value, detail): (SharedString, SharedString) = match last {
+            Some(run) => (
+                state_label(&run.state, now),
+                format!("{} · {}", run.rule_name, format::relative(run.started, now)).into(),
+            ),
+            None => (
+                tr("overview.auto.no_runs"),
+                tr("overview.auto.no_runs_hint"),
+            ),
+        };
+        let tone = last.map_or(ui::Tone::Neutral, |run| state_tone(&run.state));
+        let mut body = vec![
+            ui::Stat::new(tr("overview.auto.last_label"), value)
+                .tone(tone)
+                .into_any_element(),
+            Self::dashboard_note(detail, cx),
+        ];
+        body.extend(last.map(|run| Self::dashboard_note(run_summary(run), cx)));
+        body.push(
+            Self::dashboard_link(
+                "overview-activity",
+                "overview.auto.open_activity",
+                Category::Activity,
+                cx,
+            )
+            .into_any_element(),
+        );
+        Self::dashboard_card("overview.auto.last", body)
+    }
+
+    /// The automation dashboard: runs waiting for the user, the next scheduled run and the
+    /// last result, each with one link to where it is handled (ADR 0024).
+    fn render_automation(&self, cx: &mut Context<'_, Self>) -> AnyElement {
+        let now = format::now();
+        let (pending, next, last, rule_count) = {
+            let model = self.rules.read(cx).model();
+            (
+                model.pending().into_iter().cloned().collect::<Vec<_>>(),
+                model
+                    .next_scheduled()
+                    .map(|info| (info.rule.name.clone(), info.next_run)),
+                model.last_finished().cloned(),
+                model.rules().len(),
+            )
+        };
+        h_flex()
+            .w_full()
+            .flex_wrap()
+            .items_stretch()
+            .gap(space::LG)
+            .child(Self::pending_card(&pending, cx))
+            .child(Self::next_card(next.as_ref(), rule_count, now, cx))
+            .child(Self::last_card(last.as_ref(), now, cx))
+            .into_any_element()
     }
 
     /// The machine: OS on the card header, one capacity bar per volume.
@@ -577,6 +746,7 @@ impl OverviewPage {
         let muted = cx.theme().muted_foreground;
         let rows = [
             ("nav.settings", &OpenSettings as &dyn Action),
+            ("palette.open", &OpenCommandPalette),
             ("nav.toggle_sidebar", &ToggleSidebar),
             ("appearance.toggle", &ToggleAppearance),
             ("main.quit", &Quit),
@@ -734,6 +904,7 @@ impl Render for OverviewPage {
             .overflow_y_scroll()
             .child(render_intro(cx))
             .children(widgets::connection_notice(connected, cx))
+            .child(self.render_automation(cx))
             .children(self.render_permission(cx))
             .children(self.render_system(cx));
         if let Some(error) = self.info_error.clone() {

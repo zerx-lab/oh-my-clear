@@ -5212,6 +5212,7 @@ dependencies = [
 name = "omc-engine"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "omc-apps",
  "omc-ipc",
  "omc-proto",

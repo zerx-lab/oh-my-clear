@@ -58,8 +58,9 @@
 //! - [`RowGrid`] — the leading columns `[disclosure][checkbox][icon]` a grouped list shares:
 //!   give the header and its items the same grid and checkboxes/titles line up.
 //! - [`NavItem`] — a 28 px sidebar entry (main sidebar, settings navigation): 16 px icon,
-//!   13 px label, optional `.suffix(..)` (key hint); `.selected(..)` = neutral sidebar fill
-//!   and 500 weight (never the accent); faint hover; focus ring.
+//!   13 px label, optional `.suffix(..)` (key hint or ONE badge); `.selected(..)` = neutral
+//!   sidebar fill and 500 weight (never the accent); faint hover; focus ring.
+//!   [`NavGroupHeader`] — the 24 px foldable heading of a run of entries (chevron on a spring).
 //!
 //! **Data and status**
 //! - [`Badge`] — at most ONE per row: the most important fact, tinted, no border ([`Tone`]).
@@ -127,7 +128,7 @@ pub use grid::RowGrid;
 pub use input::TextInput;
 pub use kbd::Kbd;
 pub use list::{ListRow, row_icon};
-pub use nav::NavItem;
+pub use nav::{NavGroupHeader, NavItem};
 pub use progress::ProgressBar;
 pub use section::{PageHeader, SectionHeader, Toolbar};
 pub use segmented::Segmented;
@@ -153,6 +154,7 @@ opaque_debug!(
     IconButton,
     Kbd,
     ListRow,
+    NavGroupHeader,
     NavItem,
     PageHeader,
     ProgressBar,

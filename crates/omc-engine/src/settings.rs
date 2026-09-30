@@ -28,7 +28,7 @@ pub fn default_settings_path() -> Option<PathBuf> {
 }
 
 #[cfg(target_os = "macos")]
-fn config_dir() -> Option<PathBuf> {
+pub(crate) fn config_dir() -> Option<PathBuf> {
     omc_scan::paths::home().map(|home| {
         home.join("Library")
             .join("Application Support")
@@ -37,14 +37,14 @@ fn config_dir() -> Option<PathBuf> {
 }
 
 #[cfg(windows)]
-fn config_dir() -> Option<PathBuf> {
+pub(crate) fn config_dir() -> Option<PathBuf> {
     omc_scan::paths::env_dir("APPDATA")
         .filter(|dir| dir.is_absolute())
         .map(|dir| dir.join("oh-my-clear"))
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
-fn config_dir() -> Option<PathBuf> {
+pub(crate) fn config_dir() -> Option<PathBuf> {
     omc_scan::paths::env_dir("XDG_CONFIG_HOME")
         .filter(|dir| dir.is_absolute())
         .or_else(|| omc_scan::paths::home().map(|home| home.join(".config")))
@@ -131,13 +131,13 @@ fn read_file(path: &Path) -> Settings {
 }
 
 /// Moves an unreadable settings file aside to `<name>.bak` so the user can recover it.
-fn keep_backup(path: &Path) {
+pub(crate) fn keep_backup(path: &Path) {
     let mut name = path.as_os_str().to_owned();
     name.push(".bak");
     let backup = PathBuf::from(name);
     match std::fs::rename(path, &backup) {
-        Ok(()) => tracing::warn!(backup = %backup.display(), "kept the corrupt settings file"),
-        Err(err) => tracing::warn!(backup = %backup.display(), %err, "cannot back up settings"),
+        Ok(()) => tracing::warn!(backup = %backup.display(), "kept the corrupt file"),
+        Err(err) => tracing::warn!(backup = %backup.display(), %err, "cannot back up the file"),
     }
 }
 
@@ -162,16 +162,16 @@ fn sanitize(clean: &mut CleanSettings) {
 
 /// Writes `text` to a temp file next to `path`, flushes it and renames it over `path`, so
 /// readers only ever see the old or the new file.
-fn write_atomic(path: &Path, text: &str) -> Result<()> {
+pub(crate) fn write_atomic(path: &Path, text: &str) -> Result<()> {
     static SEQ: AtomicU64 = AtomicU64::new(0);
-    let io_err = |source| Error::SettingsIo {
+    let io_err = |source| Error::FileIo {
         path: path.to_path_buf(),
         source,
     };
     let dir = path.parent().ok_or_else(|| {
         io_err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "settings path has no parent directory",
+            "path has no parent directory",
         ))
     })?;
     std::fs::create_dir_all(dir).map_err(io_err)?;
@@ -187,7 +187,7 @@ fn write_atomic(path: &Path, text: &str) -> Result<()> {
         if let Err(cleanup) = std::fs::remove_file(&tmp)
             && cleanup.kind() != std::io::ErrorKind::NotFound
         {
-            tracing::debug!(tmp = %tmp.display(), %cleanup, "temp settings file left behind");
+            tracing::debug!(tmp = %tmp.display(), %cleanup, "temp file left behind");
         }
         return Err(io_err(err));
     }

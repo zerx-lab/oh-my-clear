@@ -11,6 +11,7 @@ license.workspace = true
 doctest = false # cargo-nextest is the only runner (ADR 0006)
 
 [dependencies]
+chrono.workspace = true
 omc-apps.workspace = true
 omc-ipc.workspace = true
 omc-proto.workspace = true

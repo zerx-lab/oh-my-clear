@@ -11,6 +11,7 @@
 use gpui_kit::App;
 use omc_proto::files::SpaceListing;
 use omc_proto::jobs::{ItemId, JobId, JobOutput, JobSpec, JobStatus};
+use omc_proto::rules::{Decision, Rule, RuleId, RuleInfo, RuleRun, RunId};
 use omc_proto::settings::{Settings, SystemInfo};
 use omc_proto::{Request, Response};
 
@@ -133,6 +134,84 @@ pub fn put_settings(
     cx: &mut App,
 ) -> impl Future<Output = Result<(), Failure>> + use<> {
     unit(request(Request::PutSettings(settings), cx), "put_settings")
+}
+
+/// Every automation rule with its schedule.
+pub fn list_rules(cx: &mut App) -> impl Future<Output = Result<Vec<RuleInfo>, Failure>> + use<> {
+    let answer = request(Request::ListRules, cx);
+    async move {
+        match answer.await? {
+            Response::Rules(rules) => Ok(rules),
+            other => Err(unexpected("list_rules", &other)),
+        }
+    }
+}
+
+/// Creates (`id == 0`) or replaces a rule; resolves to the stored rule.
+pub fn put_rule(
+    rule: Rule,
+    cx: &mut App,
+) -> impl Future<Output = Result<RuleInfo, Failure>> + use<> {
+    let answer = request(Request::PutRule(rule), cx);
+    async move {
+        match answer.await? {
+            Response::Rule(info) => Ok(info),
+            other => Err(unexpected("put_rule", &other)),
+        }
+    }
+}
+
+/// Deletes a rule (its history stays).
+pub fn delete_rule(id: RuleId, cx: &mut App) -> impl Future<Output = Result<(), Failure>> + use<> {
+    unit(request(Request::DeleteRule { id }, cx), "delete_rule")
+}
+
+/// Fires a rule now, off schedule.
+pub fn run_rule(
+    id: RuleId,
+    cx: &mut App,
+) -> impl Future<Output = Result<RuleRun, Failure>> + use<> {
+    let answer = request(Request::RunRule { id }, cx);
+    async move {
+        match answer.await? {
+            Response::Run(run) => Ok(run),
+            other => Err(unexpected("run_rule", &other)),
+        }
+    }
+}
+
+/// The activity history, newest first.
+pub fn list_runs(cx: &mut App) -> impl Future<Output = Result<Vec<RuleRun>, Failure>> + use<> {
+    let answer = request(Request::ListRuns, cx);
+    async move {
+        match answer.await? {
+            Response::Runs(runs) => Ok(runs),
+            other => Err(unexpected("list_runs", &other)),
+        }
+    }
+}
+
+/// One run.
+pub fn get_run(id: RunId, cx: &mut App) -> impl Future<Output = Result<RuleRun, Failure>> + use<> {
+    let answer = request(Request::GetRun { id }, cx);
+    async move {
+        match answer.await? {
+            Response::Run(run) => Ok(run),
+            other => Err(unexpected("get_run", &other)),
+        }
+    }
+}
+
+/// Answers a pending run.
+pub fn decide_run(
+    id: RunId,
+    decision: Decision,
+    cx: &mut App,
+) -> impl Future<Output = Result<(), Failure>> + use<> {
+    unit(
+        request(Request::DecideRun { id, decision }, cx),
+        "decide_run",
+    )
 }
 
 async fn unit(

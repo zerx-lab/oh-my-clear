@@ -9,8 +9,11 @@
 - **Event** — an unsolicited daemon → UI frame (`omc_proto::Event`: `activate`, `quit`), pushed only to `ui` clients. Not: `ClientEvent`, the omc-ipc supervisor's channel item to the UI.
 - **Guard** — the removal safety check (roots, home, standard containers, OS trees, user exclusions) applied to every path before deletion. Code: `omc_scan::Guard`.
 - **Helper bundle** — macOS `oh-my-clear.app/Contents/Helpers/oh-my-clear-daemon.app`, the daemon's own app bundle (id `dev.zerx.oh-my-clear.daemon`, `LSUIElement`). Code: `omc_ipc::layout`.
+- **Prompt** — the compact window asking about one pending run (Clean now / Snooze / Skip); opened on `Event::Prompt` or by `oh-my-clear --prompt <run>`. Code: `omc_ui::prompt`, ADR 0024.
 - **Job** — one long-running daemon operation (scan, clean, app inventory, uninstall, startup change) with pushed progress and a retained output addressed by `JobId`. Code: `omc_proto::jobs`, omc-engine. Not: a tokio task.
 - **Host thread** — the daemon's main thread in `run`: tao event loop (macOS/Windows) or the daemon loop's `block_on` (Linux) that owns the tray. Code: `oh-my-clear-daemon/src/host.rs`.
+- **Rule** — a daemon-owned automation: trigger + scope + filter + action + confirm, persisted in `rules.toml`. Code: `omc_proto::rules::Rule`, `omc_engine::rules`, ADR 0024. Not: a TTSR rule.
+- **Run** — one firing of a rule (Scanning → Pending/Deferred → Cleaning → Done/Nothing/Skipped/Failed), kept in the activity history. Code: `omc_proto::rules::RuleRun`. Not: a job (a run drives scan/clean jobs).
 - **Removal target** — how one reported item is removed (location, contents-only, min age, method, admin); `targets[item_id]` of a scan. Code: `omc_scan::Target`/`Scanned`.
 - **Runtime dir** — private per-user dir (`0700`, owner-checked) holding the daemon socket, `daemon.lock`, `endpoint.json`, `daemon.log`, `ui.log` (a tray-launched UI's stderr). Code: `omc_ipc::RuntimeDir`.
 - **Tray** — the daemon's system tray icon + menu (Open, Quit); keeps the daemon resident while no UI is attached. Code: `oh-my-clear-daemon/src/tray.rs`, ADR 0020.

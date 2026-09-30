@@ -36,6 +36,10 @@ pub enum Category {
     Installers,
     /// Programs and services launched at login.
     StartupItems,
+    /// Long-lived automation rules the daemon runs on its own (ADR 0024).
+    Rules,
+    /// Runs of those rules: pending decisions and the history.
+    Activity,
 }
 
 /// A titled run of sidebar entries.
@@ -45,6 +49,15 @@ pub struct NavGroup {
     pub label: Option<&'static str>,
     /// Entries in display order.
     pub items: &'static [Category],
+}
+
+impl NavGroup {
+    /// Stable identifier (the label key without its prefix): what the sidebar persists
+    /// for a collapsed group. `None` for the ungrouped top entry, which never collapses.
+    pub fn id(&self) -> Option<&'static str> {
+        self.label
+            .map(|label| label.strip_prefix("nav.group.").unwrap_or(label))
+    }
 }
 
 /// Sidebar layout, top to bottom. Every [`Category`] appears exactly once.
@@ -79,6 +92,10 @@ pub const NAV: &[NavGroup] = &[
             Category::StartupItems,
         ],
     },
+    NavGroup {
+        label: Some("nav.group.automation"),
+        items: &[Category::Rules, Category::Activity],
+    },
 ];
 
 /// The OS's name for deleted-but-kept items.
@@ -106,6 +123,8 @@ impl Category {
             Self::Leftovers => "leftovers",
             Self::Installers => "installers",
             Self::StartupItems => "startup_items",
+            Self::Rules => "rules",
+            Self::Activity => "activity",
         }
     }
 
@@ -124,6 +143,8 @@ impl Category {
             Self::Leftovers => IconName::FolderX,
             Self::Installers => IconName::Disc3,
             Self::StartupItems => IconName::Rocket,
+            Self::Rules => IconName::CalendarClock,
+            Self::Activity => IconName::Activity,
         }
     }
 
@@ -168,7 +189,7 @@ mod tests {
 
     use super::*;
 
-    const ALL: [Category; 12] = [
+    const ALL: [Category; 14] = [
         Category::Overview,
         Category::SystemJunk,
         Category::BrowserData,
@@ -181,6 +202,8 @@ mod tests {
         Category::Leftovers,
         Category::Installers,
         Category::StartupItems,
+        Category::Rules,
+        Category::Activity,
     ];
 
     #[test]

@@ -6,31 +6,82 @@
 //! never restarted, when toggled mid-flight) while the panel keeps its full width and stays
 //! pinned to the clip's right edge, so its text never re-wraps during the motion. Once
 //! collapsed and settled the panel is not rendered at all.
+//!
+//! Every titled group folds (ADR 0024); the folded ids live in
+//! [`UiSettings::collapsed_groups`], so they persist with the other preferences. A folded
+//! group still shows the selected entry, so the user never loses where they are. The
+//! Rules row carries the number of enabled rules and the Activity row the number of runs
+//! waiting for an answer (one badge per row, ADR 0022).
 
 use gpui_kit::base::spring;
 use gpui_kit::component::{ActiveTheme as _, IconName, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, Context, ElementId, FontWeight, InteractiveElement as _, IntoElement,
+    AnyElement, App, Context, ElementId, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Pixels, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Window, div,
+    Subscription, Window, div,
 };
 
 use crate::actions::OpenSettings;
 use crate::motion;
-use crate::nav::{Category, NAV};
+use crate::nav::{Category, NAV, NavGroup};
+use crate::rules::{self, Rules};
+use crate::settings::UiSettings;
 use crate::theme;
-use crate::tokens::{chrome, layout, space, text};
+use crate::tokens::{chrome, layout, space};
 use crate::ui;
 
 /// Navigation state of the main window: selected area and whether the panel is shown.
-#[derive(Debug, Default)]
 pub(crate) struct Sidebar {
     collapsed: bool,
     selected: Category,
+    rules: Entity<Rules>,
+    _subscriptions: Vec<Subscription>,
+}
+
+impl std::fmt::Debug for Sidebar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Sidebar")
+            .field("collapsed", &self.collapsed)
+            .field("selected", &self.selected)
+            .finish_non_exhaustive()
+    }
+}
+
+/// The entries of `group` to draw: all of them while it is open, else only the selected one.
+fn visible_items(group: &NavGroup, open: bool, selected: Category) -> Vec<Category> {
+    group
+        .items
+        .iter()
+        .copied()
+        .filter(|&category| open || category == selected)
+        .collect()
+}
+
+/// The badge of a sidebar row: `(count, tone)`, `None` when there is nothing to say.
+fn badge_for(category: Category, enabled: usize, pending: usize) -> Option<(usize, ui::Tone)> {
+    let (count, tone) = match category {
+        Category::Rules => (enabled, ui::Tone::Neutral),
+        Category::Activity => (pending, ui::Tone::Warning),
+        _ => return None,
+    };
+    (count > 0).then_some((count, tone))
 }
 
 impl Sidebar {
+    /// A sidebar showing the overview.
+    pub(crate) fn new(cx: &mut Context<'_, Self>) -> Self {
+        let rules = rules::entity(cx);
+        // The badges follow the rules store.
+        let subscriptions = vec![cx.observe(&rules, |_, _, cx| cx.notify())];
+        Self {
+            collapsed: false,
+            selected: Category::default(),
+            rules,
+            _subscriptions: subscriptions,
+        }
+    }
+
     /// Whether the panel is hidden (or on its way out).
     pub(crate) fn is_collapsed(&self) -> bool {
         self.collapsed
@@ -55,34 +106,48 @@ impl Sidebar {
         }
     }
 
+    fn row_badge(&self, category: Category, cx: &App) -> Option<AnyElement> {
+        let model = self.rules.read(cx).model();
+        let (count, tone) = badge_for(category, model.enabled_count(), model.pending_count())?;
+        Some(
+            ui::Badge::new(count.to_string())
+                .tone(tone)
+                .into_any_element(),
+        )
+    }
+
     fn render_nav(&self, cx: &mut Context<'_, Self>) -> Vec<AnyElement> {
         NAV.iter()
             .map(|group| {
-                let muted = cx.theme().muted_foreground;
-                v_flex()
-                    .gap(space::XXS)
-                    .when_some(group.label, |this, label| {
-                        this.child(
-                            div()
-                                .px(space::MD)
-                                .pt(space::MD)
-                                .pb(space::XS)
-                                .text_size(text::CAPTION)
-                                .line_height(text::CAPTION_LINE_HEIGHT)
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(muted)
-                                .child(tr(label)),
-                        )
+                let id = group.id();
+                let open = id.is_none_or(|id| !UiSettings::get(cx).is_group_collapsed(id));
+                let header = group.label.zip(id).map(|(label, id)| {
+                    ui::NavGroupHeader::new(
+                        ElementId::Name(SharedString::from(format!("sidebar-group-{id}"))),
+                        tr(label),
+                        open,
+                    )
+                    .on_toggle(move |_, _, cx| {
+                        UiSettings::update(cx, |settings| settings.toggle_group(id));
                     })
-                    .children(group.items.iter().map(|&category| {
+                });
+                let items = visible_items(group, open, self.selected)
+                    .into_iter()
+                    .map(|category| {
                         ui::NavItem::new(
                             ElementId::Name(SharedString::new_static(category.key())),
                             category.icon(),
                             category.title(),
                         )
                         .selected(category == self.selected)
+                        .when_some(self.row_badge(category, cx), ui::NavItem::suffix)
                         .on_click(cx.listener(move |this, _, _, cx| this.select(category, cx)))
-                    }))
+                    })
+                    .collect::<Vec<_>>();
+                v_flex()
+                    .gap(space::XXS)
+                    .children(header)
+                    .children(items)
                     .into_any_element()
             })
             .collect()
@@ -159,4 +224,55 @@ impl Render for Sidebar {
 
 fn tr(key: &str) -> SharedString {
     rust_i18n::t!(key).to_string().into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_folded_group_still_shows_the_selected_entry() {
+        let group = NavGroup {
+            label: Some("nav.group.automation"),
+            items: &[Category::Rules, Category::Activity],
+        };
+        assert_eq!(
+            visible_items(&group, true, Category::Overview),
+            [Category::Rules, Category::Activity],
+            "an open group lists everything"
+        );
+        assert_eq!(
+            visible_items(&group, false, Category::Activity),
+            [Category::Activity],
+            "a folded group keeps where the user is"
+        );
+        assert!(
+            visible_items(&group, false, Category::Overview).is_empty(),
+            "a folded group without the selection is empty"
+        );
+    }
+
+    #[test]
+    fn only_automation_rows_carry_a_badge_and_only_above_zero() {
+        assert_eq!(
+            badge_for(Category::Rules, 3, 9),
+            Some((3, ui::Tone::Neutral)),
+            "rules count the enabled ones"
+        );
+        assert_eq!(
+            badge_for(Category::Activity, 3, 2),
+            Some((2, ui::Tone::Warning)),
+            "activity counts the runs waiting for the user"
+        );
+        assert_eq!(
+            badge_for(Category::Activity, 3, 0),
+            None,
+            "nothing pending, no badge"
+        );
+        assert_eq!(
+            badge_for(Category::Trash, 3, 2),
+            None,
+            "tool rows never carry one"
+        );
+    }
 }

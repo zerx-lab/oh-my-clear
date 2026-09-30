@@ -6,3 +6,9 @@ tray:
   quit:
     en: Quit oh-my-clear
     zh-CN: 退出 oh-my-clear
+  pending:
+    en: "Clean %{name} (%{size})…"
+    zh-CN: "清理 %{name}（%{size}）…"
+  pending_more:
+    en: "+ %{count} more waiting"
+    zh-CN: "另有 %{count} 项待处理"

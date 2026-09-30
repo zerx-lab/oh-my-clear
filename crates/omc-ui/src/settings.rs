@@ -3,6 +3,7 @@
 //! refreshes all windows, so a view never has to know what depends on a preference.
 //! Changes are also persisted in the daemon's settings ([`crate::clean_settings`]).
 
+use std::collections::BTreeSet;
 use std::sync::LazyLock;
 
 use gpui_kit::{App, Global};
@@ -18,6 +19,22 @@ pub struct UiSettings {
     pub theme: ThemePreferences,
     /// UI language.
     pub language: Language,
+    /// Sidebar groups the user folded, by [`crate::nav::NavGroup::id`].
+    pub collapsed_groups: BTreeSet<String>,
+}
+
+impl UiSettings {
+    /// Whether the sidebar group `id` is folded.
+    pub fn is_group_collapsed(&self, id: &str) -> bool {
+        self.collapsed_groups.contains(id)
+    }
+
+    /// Folds the sidebar group `id` when it is open, opens it when folded.
+    pub fn toggle_group(&mut self, id: &str) {
+        if !self.collapsed_groups.remove(id) {
+            self.collapsed_groups.insert(id.to_owned());
+        }
+    }
 }
 
 impl Global for UiSettings {}
@@ -53,5 +70,28 @@ impl UiSettings {
         }
         crate::clean_settings::ui_changed(cx);
         cx.refresh_windows();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UiSettings;
+
+    #[test]
+    fn toggling_a_group_folds_it_and_toggling_again_opens_it() {
+        let mut settings = UiSettings::default();
+        assert!(!settings.is_group_collapsed("storage"), "groups start open");
+        settings.toggle_group("storage");
+        assert!(settings.is_group_collapsed("storage"), "folded");
+        assert!(
+            !settings.is_group_collapsed("cleanup"),
+            "other groups are unaffected"
+        );
+        settings.toggle_group("storage");
+        assert_eq!(
+            settings,
+            UiSettings::default(),
+            "opening it again restores the defaults"
+        );
     }
 }

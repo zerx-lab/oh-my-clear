@@ -13,9 +13,11 @@ pub mod apps;
 pub mod files;
 pub mod jobs;
 pub mod junk;
+pub mod rules;
 pub mod settings;
 
 use jobs::{ItemId, JobId, JobOutput, JobSpec, JobStatus, JobUpdate};
+use rules::{Decision, Rule, RuleId, RuleInfo, RuleRun, RunId};
 use settings::{Settings, SystemInfo};
 
 /// Protocol version. Bump on any non-additive wire change (ADR 0008).
@@ -68,6 +70,18 @@ pub enum Event {
     Job(JobUpdate),
     /// The stored settings changed (another UI window or process saved them).
     SettingsChanged,
+    /// A rule was created, changed, deleted or its schedule moved; re-list with
+    /// `list_rules`.
+    RulesChanged,
+    /// A rule run was created or changed state.
+    Run(RuleRun),
+    /// A run needs the user's decision now (fired, or its snooze ended): the UI shows the
+    /// prompt window for it. With no UI attached the daemon launches one with
+    /// `--prompt <run>` instead.
+    Prompt {
+        /// The pending run.
+        run: RunId,
+    },
 }
 
 /// Requests. `hello`, `ping` and `shutdown` are the frozen meta subset: their shape never
@@ -121,6 +135,38 @@ pub enum Request {
         /// A directory node id (0 = root).
         node: ItemId,
     },
+    /// Every rule with its schedule; answered with [`Response::Rules`].
+    ListRules,
+    /// Creates (`id == 0`) or replaces a rule; answered with [`Response::Rule`].
+    /// `bad_request` for an invalid trigger or scope, `not_found` for an unknown id.
+    PutRule(Rule),
+    /// Deletes a rule; answered with [`Response::Unit`]. Its history stays.
+    DeleteRule {
+        /// The rule.
+        id: RuleId,
+    },
+    /// Fires a rule now, off schedule; answered with [`Response::Run`]. `bad_request`
+    /// while the rule already has an unfinished run.
+    RunRule {
+        /// The rule.
+        id: RuleId,
+    },
+    /// The activity history, newest first (unfinished runs included); answered with
+    /// [`Response::Runs`].
+    ListRuns,
+    /// One run; answered with [`Response::Run`].
+    GetRun {
+        /// The run.
+        id: RunId,
+    },
+    /// Answers a pending run; answered with [`Response::Unit`]. `bad_request` when the run
+    /// is not pending.
+    DecideRun {
+        /// The run.
+        id: RunId,
+        /// The answer.
+        decision: Decision,
+    },
 }
 
 /// Successful responses.
@@ -151,6 +197,14 @@ pub enum Response {
     JobResult(JobOutput),
     /// Answer to [`Request::SpaceChildren`].
     SpaceNodes(files::SpaceListing),
+    /// Answer to [`Request::ListRules`].
+    Rules(Vec<RuleInfo>),
+    /// Answer to [`Request::PutRule`]: the stored rule with its id.
+    Rule(RuleInfo),
+    /// Answer to [`Request::RunRule`] and [`Request::GetRun`].
+    Run(RuleRun),
+    /// Answer to [`Request::ListRuns`].
+    Runs(Vec<RuleRun>),
 }
 
 /// Handshake request.

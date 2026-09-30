@@ -37,6 +37,9 @@ nav:
     applications:
       en: Applications
       zh-CN: 应用
+    automation:
+      en: Automation
+      zh-CN: 自动化
   overview:
     title:
       en: Overview
@@ -157,6 +160,26 @@ nav:
     covers:
       en: Login items, launch agents and daemons, Windows startup entries and services, XDG autostart and systemd user units.
       zh-CN: 登录项、启动代理与守护进程、Windows 启动项与服务、XDG 自启动项与 systemd 用户单元。
+  rules:
+    title:
+      en: Rules
+      zh-CN: 规则
+    description:
+      en: Cleanups that run on their own on a schedule, so you do not have to remember them.
+      zh-CN: 按计划自动执行的清理，无需你记着去做。
+    covers:
+      en: When to run, what to look at, which items qualify, and whether to ask first.
+      zh-CN: 何时运行、检查什么、哪些项目符合条件，以及是否先询问你。
+  activity:
+    title:
+      en: Activity
+      zh-CN: 活动
+    description:
+      en: What your rules found and did, and the runs waiting for your answer.
+      zh-CN: 规则发现并处理了什么，以及等待你答复的运行。
+    covers:
+      en: Pending decisions, past runs, freed space and the items each run acted on.
+      zh-CN: 待决定的运行、历史运行、释放的空间以及每次运行处理的项目。
 main:
   shortcuts:
     en: Shortcuts
@@ -195,6 +218,9 @@ menu:
   toggle_sidebar:
     en: Show/Hide Sidebar
     zh-CN: 显示/隐藏侧边栏
+  command_palette:
+    en: Command Palette…
+    zh-CN: 命令面板…
 settings:
   page:
     appearance:
